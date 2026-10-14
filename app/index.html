@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chayniz</title>
+<style>
+  :root {
+    --bg: #11151c;
+    --panel: #1b212c;
+    --text: #e8ecf1;
+    --muted: #8893a3;
+    --accent: #4f8cff;
+    --good: #2fbf71;
+    --bad: #e2543a;
+    --border: #2a3140;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    height: 100%;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    min-height: 100dvh; /* mobile browsers: avoids the toolbar-overlap gap 100vh leaves */
+  }
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .card {
+    width: 100%;
+    max-width: 420px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+  }
+  h1 {
+    font-size: 1.5rem;
+    margin: 0 0 4px;
+    text-align: center;
+  }
+  .subtitle {
+    color: var(--muted);
+    text-align: center;
+    font-size: 0.9rem;
+    margin: 0 0 24px;
+  }
+  .file-row {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .secondary-btn {
+    width: 100%;
+    padding: 14px;
+    background: #232b38;
+    color: var(--text);
+    border: 1px solid var(--border);
+    font-size: 1rem;
+  }
+  .own-csv {
+    margin-top: 8px;
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+  }
+  .own-csv > summary {
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 0.85rem;
+    list-style: none;
+  }
+  .own-csv > summary::-webkit-details-marker { display: none; }
+  .own-csv > summary::after { content: " ▾"; }
+  .own-csv[open] > summary::after { content: " ▴"; }
+  .own-csv > *:not(summary) { margin-top: 10px; }
+  .status {
+    font-size: 0.9rem;
+    color: var(--muted);
+    min-height: 1.2em;
+  }
+  .status.error { color: var(--bad); }
+  button {
+    font: inherit;
+    cursor: pointer;
+    border: none;
+    border-radius: 12px;
+  }
+  button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .primary-btn {
+    width: 100%;
+    padding: 16px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-top: 8px;
+  }
+  .prompt-label {
+    color: var(--muted);
+    font-size: 0.85rem;
+    text-align: center;
+    margin-bottom: 4px;
+  }
+  .prompt-value {
+    font-size: 2.2rem;
+    text-align: center;
+    margin: 0 0 24px;
+    word-break: break-word;
+  }
+  .prompt-value.latin {
+    font-size: 1.5rem;
+  }
+  .options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .option-btn {
+    width: 100%;
+    padding: 16px;
+    background: #232b38;
+    color: var(--text);
+    font-size: 1.1rem;
+    text-align: left;
+    border: 1px solid var(--border);
+  }
+  .option-btn:active {
+    background: #2c3647;
+  }
+  .option-btn.correct {
+    background: var(--good);
+    color: #06230f;
+    border-color: var(--good);
+  }
+  .option-btn.incorrect {
+    background: var(--bad);
+    color: #2a0a04;
+    border-color: var(--bad);
+  }
+  .option-btn.reveal {
+    background: var(--good);
+    color: #06230f;
+    border-color: var(--good);
+  }
+  .next-row {
+    margin-top: 20px;
+  }
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.75rem;
+    padding: 12px;
+  }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <section id="load-screen" class="card">
+    <h1>Chayniz</h1>
+    <p class="subtitle">Taiwanese Mandarin drills.</p>
+    <div class="file-row">
+      <div id="load-status" class="status">Loading lessons…</div>
+      <button id="start-btn" class="primary-btn" disabled>Start</button>
+      <details class="own-csv">
+        <summary>Load your own CSV instead</summary>
+        <input id="file-input" type="file" accept=".csv,text/csv,text/plain" class="visually-hidden">
+        <button id="choose-file-btn" type="button" class="secondary-btn">Choose CSV file</button>
+        <div id="file-name" class="status">No file selected</div>
+      </details>
+    </div>
+  </section>
+
+  <section id="quiz-screen" class="card hidden">
+    <div class="prompt-label" id="prompt-label"></div>
+    <div class="prompt-value" id="prompt-value"></div>
+    <div class="options" id="options"></div>
+    <div class="next-row">
+      <button id="next-btn" class="primary-btn hidden">Next</button>
+    </div>
+  </section>
+</main>
+<footer>No progress is saved. Reloading starts a fresh session.</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- CSV parsing (RFC4180-style: handles quoted fields with embedded commas/newlines) ----------
+  function parseCSV(rawText) {
+    // Excel and some editors prepend a UTF-8 BOM; left in place it corrupts the first header name.
+    const text = rawText.charCodeAt(0) === 0xfeff ? rawText.slice(1) : rawText;
+    const rows = [];
+    let row = [];
+    let field = "";
+    let inQuotes = false;
+
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (inQuotes) {
+        if (c === '"') {
+          if (text[i + 1] === '"') { field += '"'; i++; }
+          else { inQuotes = false; }
+        } else {
+          field += c;
+        }
+      } else {
+        if (c === '"') {
+          inQuotes = true;
+        } else if (c === ",") {
+          row.push(field);
+          field = "";
+        } else if (c === "\n") {
+          row.push(field);
+          rows.push(row);
+          row = [];
+          field = "";
+        } else if (c === "\r") {
+          // ignore; \n (if present) ends the row
+        } else {
+          field += c;
+        }
+      }
+    }
+    if (field.length > 0 || row.length > 0) {
+      row.push(field);
+      rows.push(row);
+    }
+    return rows.filter(r => !(r.length === 1 && r[0].trim() === ""));
+  }
+
+  function rowsToItems(rawRows) {
+    if (rawRows.length === 0) return { items: [], skipped: 0 };
+    const header = rawRows[0].map(h => h.trim().toLowerCase());
+    const idx = {
+      hanzi: header.indexOf("hanzi"),
+      pinyin: header.indexOf("pinyin"),
+      meaning: header.indexOf("meaning"),
+      tags: header.indexOf("tags"),
+    };
+    const items = [];
+    let skipped = 0;
+    for (let i = 1; i < rawRows.length; i++) {
+      const r = rawRows[i];
+      const hanzi = idx.hanzi >= 0 ? (r[idx.hanzi] || "").trim() : "";
+      const pinyin = idx.pinyin >= 0 ? (r[idx.pinyin] || "").trim() : "";
+      const meaning = idx.meaning >= 0 ? (r[idx.meaning] || "").trim() : "";
+      const tags = idx.tags >= 0 ? (r[idx.tags] || "").trim() : "";
+      if (!hanzi || !pinyin || !meaning) {
+        skipped++;
+        continue;
+      }
+      items.push({ hanzi, pinyin, meaning, tags });
+    }
+    return { items, skipped };
+  }
+
+  // ---------- Question generation ----------
+  const MIN_DISTINCT = 5; // see SPEC.md: Minimum dataset size
+  const DISTRACTOR_RESAMPLE_CAP = 10;
+
+  const DIRECTIONS = [
+    { key: "hanzi->meaning", promptCol: "hanzi", answerCol: "meaning", label: "What does this mean?" },
+    { key: "meaning->hanzi", promptCol: "meaning", answerCol: "hanzi", label: "Which word means this?" },
+    { key: "hanzi->pinyin", promptCol: "hanzi", answerCol: "pinyin", label: "How do you read this?" },
+    { key: "pinyin->hanzi", promptCol: "pinyin", answerCol: "hanzi", label: "Which word is this pinyin?" },
+    { key: "pinyin->meaning", promptCol: "pinyin", answerCol: "meaning", label: "What does this pinyin mean?" },
+    { key: "meaning->pinyin", promptCol: "meaning", answerCol: "pinyin", label: "How do you say this in pinyin?" },
+  ];
+
+  function distinctValuesByColumn(items) {
+    const cols = ["hanzi", "pinyin", "meaning"];
+    const result = {};
+    for (const col of cols) {
+      result[col] = Array.from(new Set(items.map(it => it[col])));
+    }
+    return result;
+  }
+
+  function shuffled(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function sampleThree(pool) {
+    return shuffled(pool).slice(0, 3);
+  }
+
+  function setKey(values) {
+    return values.slice().sort().join("");
+  }
+
+  function createQuizState(items) {
+    const distinct = distinctValuesByColumn(items);
+    const validDirections = DIRECTIONS.filter(d => distinct[d.answerCol].length >= MIN_DISTINCT);
+
+    let rowQueue = [];
+    const lastDistractorSet = {}; // key: `${rowIndex}:${answerCol}` -> sorted joined string
+
+    function refillQueue() {
+      rowQueue = shuffled(items.map((_, i) => i));
+    }
+
+    function nextQuestion() {
+      if (rowQueue.length === 0) refillQueue();
+      const rowIndex = rowQueue.shift();
+      const row = items[rowIndex];
+      const direction = validDirections[Math.floor(Math.random() * validDirections.length)];
+
+      const correctValue = row[direction.answerCol];
+      const pool = distinct[direction.answerCol].filter(v => v !== correctValue);
+
+      const trackKey = rowIndex + ":" + direction.answerCol;
+      let distractors = sampleThree(pool);
+      let attempts = 0;
+      while (
+        lastDistractorSet[trackKey] !== undefined &&
+        setKey(distractors) === lastDistractorSet[trackKey] &&
+        attempts < DISTRACTOR_RESAMPLE_CAP
+      ) {
+        distractors = sampleThree(pool);
+        attempts++;
+      }
+      lastDistractorSet[trackKey] = setKey(distractors);
+
+      const options = shuffled([correctValue, ...distractors]);
+
+      return {
+        promptLabel: direction.label,
+        promptValue: row[direction.promptCol],
+        promptIsHanzi: direction.promptCol === "hanzi",
+        options,
+        correctValue,
+      };
+    }
+
+    return { validDirections, nextQuestion };
+  }
+
+  // ---------- UI wiring ----------
+  const fileInput = document.getElementById("file-input");
+  const chooseFileBtn = document.getElementById("choose-file-btn");
+  const fileNameEl = document.getElementById("file-name");
+  const loadStatus = document.getElementById("load-status");
+  const startBtn = document.getElementById("start-btn");
+  const loadScreen = document.getElementById("load-screen");
+  const quizScreen = document.getElementById("quiz-screen");
+  const promptLabelEl = document.getElementById("prompt-label");
+  const promptValueEl = document.getElementById("prompt-value");
+  const optionsEl = document.getElementById("options");
+  const nextBtn = document.getElementById("next-btn");
+
+  let quiz = null;
+
+  function setStatus(text, isError) {
+    loadStatus.textContent = text;
+    loadStatus.classList.toggle("error", Boolean(isError));
+  }
+
+  function useItems(items, skipped, sourceLabel) {
+    startBtn.disabled = true;
+    if (items.length === 0) {
+      setStatus("No usable rows found (need hanzi, pinyin and meaning columns).", true);
+      return;
+    }
+    const candidate = createQuizState(items);
+    if (candidate.validDirections.length === 0) {
+      setStatus(
+        "Loaded " + items.length + " word(s), but no column has " + MIN_DISTINCT +
+        "+ distinct values, so no question can be generated. Add more varied rows.", true);
+      return;
+    }
+    quiz = candidate;
+    let msg = items.length + " words loaded" + (sourceLabel ? " " + sourceLabel : "") + ".";
+    if (skipped > 0) msg += " " + skipped + " row(s) skipped (missing column).";
+    setStatus(msg, false);
+    startBtn.disabled = false;
+  }
+
+  // ---------- Bundled lessons (served from the repo; added by committing a CSV + listing it in manifest.json) ----------
+  function mergeItems(lists) {
+    const seen = new Set();
+    const merged = [];
+    for (const list of lists) {
+      for (const item of list) {
+        const key = item.hanzi + "" + item.pinyin + "" + item.meaning;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        merged.push(item);
+      }
+    }
+    return merged;
+  }
+
+  async function loadBundledDecks() {
+    const manifestRes = await fetch("decks/manifest.json", { cache: "no-store" });
+    if (!manifestRes.ok) throw new Error("manifest " + manifestRes.status);
+    const deckFiles = await manifestRes.json();
+
+    const lists = [];
+    let skipped = 0;
+    for (const name of deckFiles) {
+      const res = await fetch("decks/" + name, { cache: "no-store" });
+      if (!res.ok) continue;
+      const parsed = rowsToItems(parseCSV(await res.text()));
+      lists.push(parsed.items);
+      skipped += parsed.skipped;
+    }
+    return { items: mergeItems(lists), skipped, lessons: lists.length };
+  }
+
+  chooseFileBtn.addEventListener("click", () => {
+    fileInput.click();
+  });
+
+  fileInput.addEventListener("change", () => {
+    const file = fileInput.files[0];
+    startBtn.disabled = true;
+    fileNameEl.textContent = file ? file.name : "No file selected";
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const { items, skipped } = rowsToItems(parseCSV(String(reader.result)));
+      useItems(items, skipped, "from " + file.name);
+    };
+    reader.onerror = () => setStatus("Could not read that file.", true);
+    reader.readAsText(file);
+  });
+
+  loadBundledDecks()
+    .then(({ items, skipped, lessons }) => {
+      useItems(items, skipped, "from " + lessons + (lessons === 1 ? " lesson" : " lessons"));
+    })
+    .catch(() => {
+      setStatus(
+        "Could not load the built-in lessons. Opening this file straight from disk blocks that — " +
+        "use the published site, or load a CSV manually below.", true);
+    });
+
+  startBtn.addEventListener("click", () => {
+    if (!quiz) return;
+    loadScreen.classList.add("hidden");
+    quizScreen.classList.remove("hidden");
+    renderQuestion();
+  });
+
+  nextBtn.addEventListener("click", () => {
+    renderQuestion();
+  });
+
+  function renderQuestion() {
+    const q = quiz.nextQuestion();
+    promptLabelEl.textContent = q.promptLabel;
+    promptValueEl.textContent = q.promptValue;
+    promptValueEl.classList.toggle("latin", !q.promptIsHanzi);
+    optionsEl.innerHTML = "";
+    nextBtn.classList.add("hidden");
+
+    q.options.forEach(optionValue => {
+      const btn = document.createElement("button");
+      btn.className = "option-btn";
+      btn.textContent = optionValue;
+      btn.addEventListener("click", () => handleAnswer(optionValue, q.correctValue));
+      optionsEl.appendChild(btn);
+    });
+  }
+
+  function handleAnswer(selected, correct) {
+    const buttons = Array.from(optionsEl.querySelectorAll(".option-btn"));
+    buttons.forEach(btn => {
+      btn.disabled = true;
+      if (btn.textContent === correct) {
+        btn.classList.add(selected === correct ? "correct" : "reveal");
+      } else if (btn.textContent === selected) {
+        btn.classList.add("incorrect");
+      }
+    });
+    nextBtn.classList.remove("hidden");
+  }
+})();
+</script>
+</body>
+</html>
