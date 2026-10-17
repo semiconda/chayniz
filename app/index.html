@@ -78,6 +78,38 @@
     border: 1px solid var(--border);
     font-size: 1rem;
   }
+  .toggle-group {
+    margin-top: 4px;
+  }
+  .toggle-label {
+    color: var(--muted);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 6px;
+  }
+  .toggle-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .toggle {
+    flex: 1;
+    padding: 12px 8px;
+    background: #232b38;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    font-size: 0.95rem;
+  }
+  .toggle.on {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+  .toggle:disabled {
+    opacity: 0.35;
+  }
   .own-csv {
     margin-top: 8px;
     border-top: 1px solid var(--border);
@@ -133,6 +165,15 @@
   .prompt-value.latin {
     font-size: 1.5rem;
   }
+  .replay-btn {
+    display: block;
+    margin: -12px auto 20px;
+    padding: 10px 20px;
+    background: #232b38;
+    color: var(--text);
+    border: 1px solid var(--border);
+    font-size: 0.95rem;
+  }
   .options {
     display: flex;
     flex-direction: column;
@@ -184,6 +225,21 @@
     <p class="subtitle">Taiwanese Mandarin drills.</p>
     <div class="file-row">
       <div id="load-status" class="status">Loading lessons…</div>
+
+      <div class="toggle-group">
+        <div class="toggle-label">How to practise</div>
+        <div class="toggle-row">
+          <button type="button" class="toggle on" data-toggle="reading">Reading</button>
+          <button type="button" class="toggle on" data-toggle="hearing">Hearing</button>
+        </div>
+        <div class="toggle-label">What to practise</div>
+        <div class="toggle-row">
+          <button type="button" class="toggle on" data-toggle="pinyin">Pinyin</button>
+          <button type="button" class="toggle on" data-toggle="characters">Characters</button>
+        </div>
+        <div id="toggle-note" class="status"></div>
+      </div>
+
       <button id="start-btn" class="primary-btn" disabled>Start</button>
       <details class="own-csv">
         <summary>Load your own CSV instead</summary>
@@ -197,6 +253,7 @@
   <section id="quiz-screen" class="card hidden">
     <div class="prompt-label" id="prompt-label"></div>
     <div class="prompt-value" id="prompt-value"></div>
+    <button id="replay-btn" type="button" class="replay-btn hidden">Play again</button>
     <div class="options" id="options"></div>
     <div class="next-row">
       <button id="next-btn" class="primary-btn hidden">Next</button>
@@ -283,13 +340,84 @@
   const DISTRACTOR_RESAMPLE_CAP = 10;
 
   const DIRECTIONS = [
-    { key: "hanzi->meaning", promptCol: "hanzi", answerCol: "meaning", label: "What does this mean?" },
-    { key: "meaning->hanzi", promptCol: "meaning", answerCol: "hanzi", label: "Which word means this?" },
-    { key: "hanzi->pinyin", promptCol: "hanzi", answerCol: "pinyin", label: "How do you read this?" },
-    { key: "pinyin->hanzi", promptCol: "pinyin", answerCol: "hanzi", label: "Which word is this pinyin?" },
-    { key: "pinyin->meaning", promptCol: "pinyin", answerCol: "meaning", label: "What does this pinyin mean?" },
-    { key: "meaning->pinyin", promptCol: "meaning", answerCol: "pinyin", label: "How do you say this in pinyin?" },
+    { key: "hanzi->meaning", mode: "text", promptCol: "hanzi", answerCol: "meaning", label: "What does this mean?" },
+    { key: "meaning->hanzi", mode: "text", promptCol: "meaning", answerCol: "hanzi", label: "Which word means this?" },
+    { key: "hanzi->pinyin", mode: "text", promptCol: "hanzi", answerCol: "pinyin", label: "How do you read this?" },
+    { key: "pinyin->hanzi", mode: "text", promptCol: "pinyin", answerCol: "hanzi", label: "Which word is this pinyin?" },
+    { key: "pinyin->meaning", mode: "text", promptCol: "pinyin", answerCol: "meaning", label: "What does this pinyin mean?" },
+    { key: "meaning->pinyin", mode: "text", promptCol: "meaning", answerCol: "pinyin", label: "How do you say this in pinyin?" },
+    { key: "audio->pinyin", mode: "audio", answerCol: "pinyin", label: "Which pinyin do you hear?" },
+    { key: "audio->hanzi", mode: "audio", answerCol: "hanzi", label: "Which character do you hear?" },
+    { key: "audio->meaning", mode: "audio", answerCol: "meaning", label: "What does this mean?" },
   ];
+
+  // Which question types the four toggles enable. Note the deliberate asymmetry: turning on
+  // CHARACTERS also brings character<->pinyin (reading a character aloud is a character skill),
+  // whereas PINYIN alone only unlocks pinyin<->english. Listening always runs from Chinese
+  // outward — English is never the prompt, since English isn't what's being learned.
+  const toggles = { reading: true, hearing: true, pinyin: true, characters: true };
+
+  function allowedDirectionKeys() {
+    const keys = new Set();
+    const anyScript = toggles.pinyin || toggles.characters;
+    if (toggles.reading) {
+      if (toggles.characters) {
+        keys.add("hanzi->meaning");
+        keys.add("meaning->hanzi");
+        keys.add("hanzi->pinyin");
+        keys.add("pinyin->hanzi");
+      }
+      if (toggles.pinyin) {
+        keys.add("pinyin->meaning");
+        keys.add("meaning->pinyin");
+      }
+    }
+    if (toggles.hearing && anyScript) {
+      keys.add("audio->meaning");
+      keys.add("audio->pinyin");
+      if (toggles.characters) keys.add("audio->hanzi");
+    }
+    return keys;
+  }
+
+  // ---------- Pinyin -> audio filename (mirrors tools/fetch_audio.py) ----------
+  const TONE_MARKS = { "̄": "1", "́": "2", "̌": "3", "̀": "4" };
+
+  function pinyinToAscii(syllable) {
+    let tone = "5";
+    let out = "";
+    for (const ch of syllable.trim().normalize("NFD")) {
+      if (TONE_MARKS[ch]) tone = TONE_MARKS[ch];
+      else out += ch;              // keeps U+0308, so ü survives to be mapped below
+    }
+    const base = out.normalize("NFC").toLowerCase().replace(/ü/g, "v");
+    return /^[a-z]+$/.test(base) ? base + tone : null;
+  }
+
+  // Greedy longest-match split into syllables we actually hold audio for. Returns null if
+  // any syllable is missing — the app never plays approximated audio, it just skips the item.
+  function segmentPinyin(pinyin, available) {
+    const result = [];
+    for (const chunk of pinyin.split(/\s+/)) {
+      for (const part of chunk.split(/['’]/)) {
+        let i = 0;
+        while (i < part.length) {
+          let matched = 0;
+          for (let len = Math.min(7, part.length - i); len > 0; len--) {
+            const candidate = pinyinToAscii(part.slice(i, i + len));
+            if (candidate && available.has(candidate)) {
+              result.push(candidate);
+              matched = len;
+              break;
+            }
+          }
+          if (!matched) return null;
+          i += matched;
+        }
+      }
+    }
+    return result.length ? result : null;
+  }
 
   function distinctValuesByColumn(items) {
     const cols = ["hanzi", "pinyin", "meaning"];
@@ -317,27 +445,40 @@
     return values.slice().sort().join("");
   }
 
-  function createQuizState(items) {
+  function createQuizState(items, audioAvailable) {
     const distinct = distinctValuesByColumn(items);
-    const validDirections = DIRECTIONS.filter(d => distinct[d.answerCol].length >= MIN_DISTINCT);
+    const audioFor = items.map(it =>
+      audioAvailable && audioAvailable.size ? segmentPinyin(it.pinyin, audioAvailable) : null);
+    const audioCount = audioFor.filter(Boolean).length;
+
+    const validDirections = DIRECTIONS.filter(d =>
+      distinct[d.answerCol].length >= MIN_DISTINCT && (d.mode !== "audio" || audioCount > 0));
 
     let rowQueue = [];
-    const lastDistractorSet = {}; // key: `${rowIndex}:${answerCol}` -> sorted joined string
+    const lastDistractorSet = {}; // key: `${rowIndex}:${direction.key}` -> sorted joined string
 
     function refillQueue() {
       rowQueue = shuffled(items.map((_, i) => i));
     }
 
-    function nextQuestion() {
-      if (rowQueue.length === 0) refillQueue();
-      const rowIndex = rowQueue.shift();
-      const row = items[rowIndex];
-      const direction = validDirections[Math.floor(Math.random() * validDirections.length)];
-
+    function distractorPool(row, direction) {
       const correctValue = row[direction.answerCol];
-      const pool = distinct[direction.answerCol].filter(v => v !== correctValue);
+      if (direction.mode === "audio" && direction.answerCol !== "pinyin") {
+        // A homophone among the options would make the question unanswerable by ear.
+        return Array.from(new Set(
+          items.filter(it => it.pinyin !== row.pinyin).map(it => it[direction.answerCol])
+        )).filter(v => v !== correctValue);
+      }
+      return distinct[direction.answerCol].filter(v => v !== correctValue);
+    }
 
-      const trackKey = rowIndex + ":" + direction.answerCol;
+    function build(rowIndex, direction) {
+      const row = items[rowIndex];
+      const correctValue = row[direction.answerCol];
+      const pool = distractorPool(row, direction);
+      if (pool.length < 3) return null;
+
+      const trackKey = rowIndex + ":" + direction.key;
       let distractors = sampleThree(pool);
       let attempts = 0;
       while (
@@ -350,18 +491,45 @@
       }
       lastDistractorSet[trackKey] = setKey(distractors);
 
-      const options = shuffled([correctValue, ...distractors]);
-
       return {
         promptLabel: direction.label,
-        promptValue: row[direction.promptCol],
+        mode: direction.mode,
+        promptValue: direction.mode === "audio" ? "" : row[direction.promptCol],
         promptIsHanzi: direction.promptCol === "hanzi",
-        options,
+        audioFiles: direction.mode === "audio" ? audioFor[rowIndex] : null,
+        row,
+        options: shuffled([correctValue, ...distractors]),
         correctValue,
       };
     }
 
-    return { validDirections, nextQuestion };
+    function directionsFor(rowIndex, allowed) {
+      return validDirections.filter(d =>
+        allowed.has(d.key) && (d.mode !== "audio" || audioFor[rowIndex]));
+    }
+
+    function nextQuestion() {
+      const allowed = allowedDirectionKeys();
+      // Some rows can't satisfy the current toggles at all (e.g. listening-only mode and an
+      // item with no audio), so walk the queue until one can rather than giving up.
+      for (let attempt = 0; attempt < items.length; attempt++) {
+        if (rowQueue.length === 0) refillQueue();
+        const rowIndex = rowQueue.shift();
+        for (const direction of shuffled(directionsFor(rowIndex, allowed))) {
+          const question = build(rowIndex, direction);
+          if (question) return question;
+        }
+      }
+      return null;
+    }
+
+    function countAvailable() {
+      const allowed = allowedDirectionKeys();
+      return items.reduce(
+        (total, _, i) => total + (directionsFor(i, allowed).length > 0 ? 1 : 0), 0);
+    }
+
+    return { validDirections, nextQuestion, audioCount, countAvailable };
   }
 
   // ---------- UI wiring ----------
@@ -372,12 +540,16 @@
   const startBtn = document.getElementById("start-btn");
   const loadScreen = document.getElementById("load-screen");
   const quizScreen = document.getElementById("quiz-screen");
+  const toggleButtons = Array.from(document.querySelectorAll(".toggle"));
+  const toggleNote = document.getElementById("toggle-note");
+  const replayBtn = document.getElementById("replay-btn");
   const promptLabelEl = document.getElementById("prompt-label");
   const promptValueEl = document.getElementById("prompt-value");
   const optionsEl = document.getElementById("options");
   const nextBtn = document.getElementById("next-btn");
 
   let quiz = null;
+  let audioIndex = new Set();
 
   function setStatus(text, isError) {
     loadStatus.textContent = text;
@@ -390,7 +562,7 @@
       setStatus("No usable rows found (need hanzi, pinyin and meaning columns).", true);
       return;
     }
-    const candidate = createQuizState(items);
+    const candidate = createQuizState(items, audioIndex);
     if (candidate.validDirections.length === 0) {
       setStatus(
         "Loaded " + items.length + " word(s), but no column has " + MIN_DISTINCT +
@@ -399,9 +571,10 @@
     }
     quiz = candidate;
     let msg = items.length + " words loaded" + (sourceLabel ? " " + sourceLabel : "") + ".";
+    if (candidate.audioCount > 0) msg += " " + candidate.audioCount + " with audio.";
     if (skipped > 0) msg += " " + skipped + " row(s) skipped (missing column).";
     setStatus(msg, false);
-    startBtn.disabled = false;
+    refreshToggles();
   }
 
   // ---------- Bundled lessons (served from the repo; added by committing a CSV + listing it in manifest.json) ----------
@@ -455,15 +628,70 @@
     reader.readAsText(file);
   });
 
-  loadBundledDecks()
-    .then(({ items, skipped, lessons }) => {
+  function refreshToggles() {
+    const hearingPossible = audioIndex.size > 0;
+    if (!hearingPossible) toggles.hearing = false;
+
+    toggleButtons.forEach(btn => {
+      const name = btn.dataset.toggle;
+      btn.classList.toggle("on", toggles[name]);
+      btn.disabled = name === "hearing" && !hearingPossible;
+      btn.setAttribute("aria-pressed", String(Boolean(toggles[name])));
+    });
+
+    if (!quiz) return;
+
+    const typeCount = allowedDirectionKeys().size;
+    const usable = typeCount ? quiz.countAvailable() : 0;
+    if (!toggles.pinyin && !toggles.characters) {
+      toggleNote.textContent = "Pick pinyin, characters, or both.";
+    } else if (!toggles.reading && !toggles.hearing) {
+      toggleNote.textContent = "Pick reading, hearing, or both.";
+    } else if (!usable) {
+      toggleNote.textContent = "No questions available with these settings.";
+    } else {
+      toggleNote.textContent =
+        typeCount + " question type" + (typeCount === 1 ? "" : "s") + " · " + usable + " words";
+    }
+    toggleNote.classList.toggle("error", !usable);
+    startBtn.disabled = !usable;
+  }
+
+  toggleButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      const name = btn.dataset.toggle;
+      toggles[name] = !toggles[name];
+      refreshToggles();
+    });
+  });
+
+  replayBtn.addEventListener("click", () => {
+    if (currentQuestion && currentQuestion.audioFiles) {
+      player.playSequence(currentQuestion.audioFiles);
+    }
+  });
+
+  async function loadAudioIndex() {
+    try {
+      const res = await fetch("audio/index.json", { cache: "no-store" });
+      return res.ok ? new Set(await res.json()) : new Set();
+    } catch (err) {
+      return new Set();   // no audio corpus available; audio questions stay switched off
+    }
+  }
+
+  (async function init() {
+    audioIndex = await loadAudioIndex();
+    refreshToggles();
+    try {
+      const { items, skipped, lessons } = await loadBundledDecks();
       useItems(items, skipped, "from " + lessons + (lessons === 1 ? " lesson" : " lessons"));
-    })
-    .catch(() => {
+    } catch (err) {
       setStatus(
         "Could not load the built-in lessons. Opening this file straight from disk blocks that — " +
         "use the published site, or load a CSV manually below.", true);
-    });
+    }
+  })();
 
   startBtn.addEventListener("click", () => {
     if (!quiz) return;
@@ -476,11 +704,49 @@
     renderQuestion();
   });
 
+  // Each recording is a full dictionary entry read aloud; the syllable itself occupies the
+  // opening half-second. We stop playback there rather than shipping cut files — see
+  // audio/LICENSE.txt. The trailing silence doubles as the gap between syllables.
+  const player = (function () {
+    const SKIP_CLICK = 0.03;
+    const SLICE_MS = 620;
+    let generation = 0;
+
+    function playSequence(files) {
+      const mine = ++generation;
+      let index = 0;
+      (function playNext() {
+        if (mine !== generation || index >= files.length) return;
+        const el = new Audio("audio/" + files[index] + ".mp3");
+        index++;
+        let timer = null;
+        el.addEventListener("loadedmetadata", () => {
+          if (el.currentTime < SKIP_CLICK) {
+            try { el.currentTime = SKIP_CLICK; } catch (e) { /* seeking unsupported */ }
+          }
+        }, { once: true });
+        el.addEventListener("ended", () => { clearTimeout(timer); playNext(); }, { once: true });
+        el.play().then(() => {
+          timer = setTimeout(() => { el.pause(); playNext(); }, SLICE_MS);
+        }).catch(() => { playNext(); });
+      })();
+    }
+
+    return { playSequence, stop() { generation++; } };
+  })();
+
+  let currentQuestion = null;
+
   function renderQuestion() {
     const q = quiz.nextQuestion();
+    if (!q) return;
+    currentQuestion = q;
+    player.stop();
+
     promptLabelEl.textContent = q.promptLabel;
-    promptValueEl.textContent = q.promptValue;
-    promptValueEl.classList.toggle("latin", !q.promptIsHanzi);
+    promptValueEl.textContent = q.mode === "audio" ? "\u{1F50A}" : q.promptValue;
+    promptValueEl.classList.toggle("latin", q.mode !== "audio" && !q.promptIsHanzi);
+    replayBtn.classList.toggle("hidden", q.mode !== "audio");
     optionsEl.innerHTML = "";
     nextBtn.classList.add("hidden");
 
@@ -488,14 +754,16 @@
       const btn = document.createElement("button");
       btn.className = "option-btn";
       btn.textContent = optionValue;
-      btn.addEventListener("click", () => handleAnswer(optionValue, q.correctValue));
+      btn.addEventListener("click", () => handleAnswer(optionValue, q));
       optionsEl.appendChild(btn);
     });
+
+    if (q.mode === "audio") player.playSequence(q.audioFiles);
   }
 
-  function handleAnswer(selected, correct) {
-    const buttons = Array.from(optionsEl.querySelectorAll(".option-btn"));
-    buttons.forEach(btn => {
+  function handleAnswer(selected, q) {
+    const correct = q.correctValue;
+    Array.from(optionsEl.querySelectorAll(".option-btn")).forEach(btn => {
       btn.disabled = true;
       if (btn.textContent === correct) {
         btn.classList.add(selected === correct ? "correct" : "reveal");
@@ -503,6 +771,11 @@
         btn.classList.add("incorrect");
       }
     });
+    if (q.mode === "audio") {
+      // Reveal what was actually said — otherwise a wrong answer teaches nothing.
+      promptValueEl.textContent = q.row.hanzi + "  " + q.row.pinyin;
+      promptValueEl.classList.add("latin");
+    }
     nextBtn.classList.remove("hidden");
   }
 })();

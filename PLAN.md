@@ -12,6 +12,13 @@ app/
   decks/
     manifest.json     # list of deck filenames the app fetches and merges on load
     basics.csv        # starter deck: ~35 basic words/phrases, also a format example
+    README.md         # paste-ready prompt for generating a lesson CSV
+  audio/
+    ni3.mp3 ...       # one MOE recording per toned syllable (1,223 files, bounded set)
+    index.json        # syllable names the app checks before offering listening questions
+    LICENSE.txt       # required MOE attribution + full usage notice
+tools/
+  fetch_audio.py      # rebuilds app/audio/ from the MOE package; not used at runtime
 SPEC.md
 PLAN.md
 handover.md
@@ -36,25 +43,35 @@ is the whole deployment story. This keeps the "must work on a phone, no backend"
 2. **Question generator.** Pure functions operating on the in-memory array:
    - maintain the session-scoped shuffled row queue described in `SPEC.md` (shuffle all row indices on load/when
      empty, draw from the front) instead of independent uniform-random picks per question,
-   - pick a random direction from the 6 in `SPEC.md`, skipping any direction whose **answer column** — the column
+   - pick a random direction from the 8 in `SPEC.md`, skipping any direction whose **answer column** — the column
      the options are actually drawn from (`meaning` for `hanzi → meaning`, `hanzi` for `meaning → hanzi`, etc.,
      *not* always the source/prompt column) — doesn't have at least **5** distinct values across the dataset (the
      minimum-dataset-size rule in `SPEC.md`; 5, not 4 — see `SPEC.md` for why 4 can't satisfy the repeat rule),
-   - build the 4-option set (correct + 3 distractors, excluding duplicates of the correct value),
-   - apply the distractor-repeat rule: track last-shown-distractor-set keyed by **(row index, answer column)** in
+     and skipping the two audio directions for items without complete syllable audio,
+   - build the 4-option set (correct + 3 distractors, excluding duplicates of the correct value; for
+     `audio → hanzi` also excluding homophones of the answer),
+   - apply the distractor-repeat rule: track last-shown-distractor-set keyed by **(row index, direction)** in
      a plain in-memory object (reset whenever a new CSV is loaded or the page reloads — never written to storage);
      on a match, resample until different, capped at a small fixed number of attempts,
    - shuffle option order.
 
-3. **UI (mobile-first, single screen flow).**
-   - **Load screen:** file picker, short instructions, a "how many rows loaded" confirmation once parsed.
+3. **Audio.** `segmentPinyin` splits a deck item's pinyin into tone-numbered syllables by greedy longest match
+   against `audio/index.json`, returning null if any syllable is absent — which removes that item from listening
+   questions entirely rather than substituting a near-miss. Playback creates an `Audio` element per syllable and
+   stops it after ~0.62 s, chaining to the next; files are never cut on disk (see `SPEC.md` for the licensing
+   reason). `tools/fetch_audio.py` is the offline corpus builder and must stay out of the runtime path.
+
+4. **UI (mobile-first, single screen flow).**
+   - **Load screen:** lesson-count confirmation, the four practice toggles (`allowedDirectionKeys()` maps toggle
+     state to the permitted direction keys — see the table in `SPEC.md`, and note the character/pinyin asymmetry),
+     a live count of question types and eligible words, and the "load your own CSV" fallback.
    - **Question screen:** the prompt (e.g. the hanzi, or the meaning, depending on direction), 4 tappable option
      buttons sized for thumb use, immediate visual feedback (correct/incorrect) on tap, then a "next question"
      action.
    - No session-end screen, no score summary screen — nothing to summarize since nothing is tracked within or
      across sessions (consistent with the fully stateless v1 decision in `SPEC.md`).
 
-4. **No storage layer.** Explicitly: no `localStorage`, no `sessionStorage`, no cookies, no service worker cache
+5. **No storage layer.** Explicitly: no `localStorage`, no `sessionStorage`, no cookies, no service worker cache
    of progress. The only thing read from disk is the CSV file the user picks each time. The row queue and
    distractor tracker from step 2 are plain in-memory JS variables, not storage — they vanish on reload and never
    touch disk; they exist to make one session feel coherent, not to carry anything between sessions. This isn't an
@@ -67,7 +84,7 @@ is the whole deployment story. This keeps the "must work on a phone, no backend"
 Do not implement, even partially or as a "simple version," during v1 build-out:
 - Leitner boxes / spaced repetition / due dates / promote-demote logic
 - Typed recall answers or any pinyin-answer-string normalization
-- Audio (TTS or recorded)
+- Speaking/recording exercises, or reverse-audio questions
 - Tag-based filtering UI
 - Any persistence (local or remote) of progress, scores, or "seen" state
 - In-app content generation (OCR, PDF parsing, LLM calls)
@@ -90,8 +107,14 @@ Do not implement, even partially or as a "simple version," during v1 build-out:
    draws and confirm no two *consecutive* appearances show the identical 3-value distractor set. Also test at
    exactly the minimum dataset size (5 distinct values in a column) to confirm the resample-until-different logic
    still holds right at the boundary, not just comfortably above it.
-6. Reload the page mid-session — confirm the app returns to the load screen with zero memory of prior answers,
+6. **Audio verification:** confirm the load screen reports how many words have audio (31 of 35 for the starter
+   deck — the 4 exclusions are expected, see `SPEC.md`). Play several listening questions: audio should start
+   automatically, "Play again" should replay it, playback should stop after the syllable rather than continuing
+   into the spoken definition, and answering should reveal the character and pinyin. For a multi-syllable word,
+   confirm both syllables play in order. Check a `audio → hanzi` question never offers two options that sound
+   identical.
+7. Reload the page mid-session — confirm the app returns to the load screen with zero memory of prior answers,
    including a fresh shuffled row queue (this is the expected, intentional behavior per the stateless-v1 decision,
    not a bug).
-7. Close and reopen in a private/incognito window, and (if available) on a second device — confirm behavior is
+8. Close and reopen in a private/incognito window, and (if available) on a second device — confirm behavior is
    identical to normal use, since nothing is stored anywhere to begin with.

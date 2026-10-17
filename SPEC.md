@@ -24,8 +24,9 @@ at render time, so the same item can be asked different ways and distractors are
   fetched and merged automatically when the page opens. Adding a lesson = commit a CSV + add its filename to the
   manifest; everyone opening the site gets the same content, with no upload step. Loading a CSV by hand remains
   available as an alternative (useful for trying a deck before committing it, and when opening the page from disk).
-- Stateless multiple-choice drilling across six question directions (character ↔ meaning, character ↔ pinyin,
-  pinyin ↔ meaning).
+- Stateless multiple-choice drilling across eight question directions: six text directions (character ↔ meaning,
+  character ↔ pinyin, pinyin ↔ meaning) and two listening directions (hear audio → pick the pinyin, hear audio →
+  pick the character).
 - No progress is saved anywhere. Every session starts fresh from the loaded CSV.
 - Within a session, the app keeps a small amount of in-memory (non-persisted, reset on reload) runtime state: a
   shuffled row queue for coverage, and a distractor-repeat tracker (see "Question generation"). This is *not* a
@@ -46,7 +47,9 @@ the feature doesn't matter. v1 deliberately does not build a cheap stand-in for 
   export/import).
 - **Typed recall answers** (as opposed to multiple choice). In the original design this was gated behind Leitner
   box level; without a progression system there's no reason to introduce pinyin-answer normalization logic yet.
-- **Audio** (hear a sound, pick the pinyin/character, or the reverse). No in-app TTS or bundled audio files in v1.
+- **Speaking and reverse-audio questions** (see a word, pick which of several recordings matches; or record
+  yourself). Listening questions themselves now exist — see "Audio" below — but anything requiring the learner to
+  produce sound does not.
 - **CSV tag-based filtering** (e.g. drill only "lesson 3"). `tags` is captured as metadata in the CSV now so content
   authors can start tagging, but no filter UI reads it yet.
 - **In-app content generation** (OCR/parsing slides or PDFs, calling an LLM from inside the app). Content prep
@@ -92,6 +95,58 @@ Notes for whoever writes the CSV-generation prompt:
   review: this is a deliberate simplification; CSVs are regenerated per content batch rather than hand-maintained,
   so adding an `id` column back later costs nothing.)
 
+## Audio
+
+`app/audio/` holds one recording per distinct toned Mandarin syllable (1,223 files, ~45 MB), named by
+tone-numbered pinyin — `ni3.mp3`, `lv4.mp3`. Because Mandarin's syllable inventory is closed, this set is
+**bounded and complete**: any future lesson is covered without adding a single file.
+
+**Source.** Taiwan's Ministry of Education 《國語辭典簡編本》 single-character audio package — human recordings of
+the ROC MOE's own pronunciation standard, so the accent is genuinely Taiwanese rather than mainland. Licensed
+CC BY-ND 3.0 TW, which permits redistribution with attribution. `app/audio/LICENSE.txt` carries the required
+attribution and MOE's full usage notice; `tools/fetch_audio.py` reproduces the corpus from scratch.
+
+**Why files are not trimmed.** Each MOE recording is a ~9-second reading: the syllable occupies roughly the first
+half-second, then silence, then the dictionary definition read aloud. The licence forbids modifying entry content,
+naming 音讀及釋義 (pronunciation *and* definitions) explicitly, while exempting adjustments that leave content
+unchanged. So the files ship complete, re-encoded to MP3 but never cut, and the app simply **stops playback after
+~0.62 s**. Playback behaviour is not redistribution. The trailing silence conveniently supplies the gap between
+syllables of a multi-syllable word.
+
+**Word audio is composed from syllables.** `謝謝` plays as its syllable files in sequence. An item qualifies for
+audio questions only if *every* one of its syllables exists in the corpus; otherwise it simply never appears as a
+listening question. The app never substitutes an approximate syllable.
+
+## Choosing what to practise
+
+Four toggles on the start screen, all on by default, select which question types a session uses. Two are about
+modality — **Reading**, **Hearing** — and two about script — **Pinyin**, **Characters**.
+
+The script toggles are deliberately *not* symmetric:
+
+- **Characters on** enables character↔english *and* character↔pinyin. Reading a character aloud is a character
+  skill, so pinyin appears as the character's partner even when the Pinyin toggle is off.
+- **Pinyin on** enables pinyin↔english only.
+- Both on enables all three pairings.
+
+Listening always runs **from** Chinese outward: the audio is always the prompt, never the answer. English is never
+a prompt, because English isn't what's being learned. Which answers are offered follows the script toggles.
+
+| Toggles | Question types |
+|---|---|
+| Reading · Pinyin · Characters | `hanzi↔meaning`, `hanzi↔pinyin`, `pinyin↔meaning` (6) |
+| Reading · Characters | `hanzi↔meaning`, `hanzi↔pinyin` (4) — no `pinyin↔meaning` |
+| Reading · Pinyin | `pinyin↔meaning` (2) |
+| Hearing · Characters | `audio→meaning`, `audio→pinyin`, `audio→hanzi` (3) |
+| Hearing · Pinyin | `audio→meaning`, `audio→pinyin` (2) |
+
+At least one modality and at least one script must be selected; otherwise Start is disabled and the screen says
+which is missing. The Hearing toggle is disabled outright when no audio corpus is reachable. The start screen
+reports how many question types and how many words the current selection yields, since some items (those without
+complete audio) drop out of listening-only selections.
+
+Toggle state is not persisted — like everything else, it resets to all-on each time the page loads.
+
 ## Question generation
 
 Each question:
@@ -108,20 +163,23 @@ Each question:
    - `pinyin → hanzi` ("which character/word is this pinyin?")
    - `pinyin → meaning` ("what does this pinyin mean?")
    - `meaning → pinyin` ("how do you say this in pinyin?")
-   — skipping any direction whose **answer column** (the column the options are drawn from — `meaning` for
+   - `audio → pinyin` ("which pinyin do you hear?")
+   - `audio → hanzi` ("which character do you hear?")
+   — skipping the two audio directions for any item lacking complete syllable audio, and skipping any direction
+   whose **answer column** (the column the options are drawn from — `meaning` for
    `hanzi → meaning`, `hanzi` for `meaning → hanzi`, etc.) doesn't meet the minimum distinct-value count below.
 3. Builds 4 multiple-choice options: the correct value (from the picked row, in the answer column), plus 3
    distractors sampled uniformly at random from the *other* rows' values in that same column, excluding any value
    equal to the correct answer (so a duplicate value elsewhere in the dataset can't appear as a wrong option).
+   For `audio → hanzi`, distractors additionally exclude any item sharing the correct item's pinyin — a homophone
+   option would make the question impossible to answer by ear.
 4. Options are shown in random order.
 
 **Distractor-repeat rule.** The app keeps an in-memory record (cleared on reload — not persisted), keyed by
-(row index, answer column), of the most recent distractor set shown. If a fresh sample would produce the exact
+(row index, direction), of the most recent distractor set shown. If a fresh sample would produce the exact
 same 3-value set just shown for that (row, column) pair, resample again — up to a small fixed cap (e.g. 10
-attempts) — before rendering. Keying includes the answer column, not just the row index, so two different
-directions for the same row (e.g. its `meaning` options vs. its `pinyin` options) are tracked independently; since
-each direction draws from a different column with differently-typed values, a cross-direction collision isn't a
-real risk, but keying this way removes the ambiguity entirely.
+attempts) — before rendering. Keying includes the direction, not just the row index, so the same row asked two
+different ways (its `meaning` options vs. its `pinyin` options, or heard vs. read) is tracked independently.
 
 **Minimum dataset size.** The app requires at least **5** distinct values in the answer column before it can
 generate a question in that direction. This is not 4: with exactly 4 distinct values, the distractor pool
@@ -168,6 +226,14 @@ This is checkable two ways:
   manual CSV picker. This is a browser security rule, not something the app can work around without a build step.
 - CSVs must be UTF-8 (a leading BOM is tolerated and stripped). Other encodings — e.g. Big5 from Excel on a
   Chinese Windows — would render as mojibake; encoding detection is deliberately not implemented.
+- **Multi-syllable audio is concatenated citation forms, not connected speech.** `你好` plays as `nǐ` + `hǎo`,
+  whereas a speaker would say *ní hǎo* (third-tone sandhi). Single characters — most of a beginner deck — are
+  unaffected and sound exactly right; longer words sound like syllables read in isolation.
+- **Syllables that only occur through sandhi or as contextual neutrals have no recording.** MOE records citation
+  readings only, so `bú` (sandhi form of `bù`) and reduced neutrals like the second syllable of `xièxie` are
+  absent. Items containing them are excluded from listening questions rather than approximated. In the starter
+  deck this affects 4 of 35 items.
+- Audio needs the page served over http(s), same as the bundled lessons.
 
 ## Open items for independent review
 

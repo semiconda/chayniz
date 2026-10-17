@@ -30,11 +30,16 @@ because a phone/fresh session has nothing else to go on.
 - **No persistence of any kind.** No localStorage, no cookies, nothing survives a reload. This is deliberate:
   localStorage doesn't survive iOS Safari's ~7-day eviction of unvisited sites, is wiped when a private window
   closes, and never syncs across devices — so a progress system built on it would silently lose or fork progress.
-- **No Leitner/spaced repetition, no typed recall, no audio.** All deferred *together*, until there's a real plan
-  for durable synced storage. The guiding preference, in the user's words: *"I prefer doing something smaller but
-  more coherent and clean, than adding features not in a good way just to have them. Each thing will come when
-  it's needed — no need to implement cheap versions of a feature just because we don't have the setup for the
-  actual feature yet."*
+- **No Leitner/spaced repetition and no typed recall.** Both deferred until there's a real plan for durable
+  synced storage. The guiding preference, in the user's words: *"I prefer doing something smaller but more
+  coherent and clean, than adding features not in a good way just to have them. Each thing will come when it's
+  needed — no need to implement cheap versions of a feature just because we don't have the setup for the actual
+  feature yet."* This is why browser text-to-speech was rejected for audio even though it would have worked
+  immediately — real recordings were worth waiting for.
+- **Audio exists and is real human Taiwanese recordings**, not TTS: Taiwan MOE's 《國語辭典簡編本》 corpus, one file
+  per toned syllable, committed under `app/audio/`. It is licensed CC BY-ND, so `app/audio/LICENSE.txt` must stay
+  intact and the files must not be trimmed or edited — the app stops playback early instead. `tools/fetch_audio.py`
+  rebuilds the corpus.
 - **In-session runtime state is fine** (shuffled row queue, distractor-repeat tracker). That's not persistence —
   it dies on reload and exists to make one session coherent.
 - **Pinyin uses real tone marks** (`nǐ hǎo`), never tone numbers.
