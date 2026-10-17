@@ -665,10 +665,12 @@
     });
   });
 
-  replayBtn.addEventListener("click", () => {
-    if (currentQuestion && currentQuestion.audioFiles) {
-      player.playSequence(currentQuestion.audioFiles);
-    }
+  replayBtn.addEventListener("click", playCurrent);
+
+  // Unlock audio on the first touch anywhere, in the capture phase so it runs before any
+  // button handler. iOS only honours this from inside a genuine gesture.
+  ["touchstart", "mousedown"].forEach(evt => {
+    document.addEventListener(evt, () => player.unlock(), { capture: true, once: true });
   });
 
   async function loadAudioIndex() {
@@ -729,10 +731,25 @@
     function context() {
       if (!ctx) {
         const Ctor = window.AudioContext || window.webkitAudioContext;
+        if (!Ctor) return null;
         ctx = new Ctor();
       }
-      if (ctx.state === "suspended") ctx.resume();
       return ctx;
+    }
+
+    // iOS keeps an AudioContext suspended until something is played from inside a real user
+    // gesture. Scheduling after an async fetch doesn't qualify, so on the first touch we play
+    // one silent sample synchronously, which is enough to unlock it for the rest of the session.
+    function unlock() {
+      const audio = context();
+      if (!audio) return;
+      try {
+        const source = audio.createBufferSource();
+        source.buffer = audio.createBuffer(1, 1, audio.sampleRate || 22050);
+        source.connect(audio.destination);
+        source.start(0);
+      } catch (err) { /* already unlocked */ }
+      if (audio.state !== "running") audio.resume();
     }
 
     function loadBuffer(name) {
@@ -798,10 +815,20 @@
       return result;
     }
 
-    function playSequence(files) {
+    function playSequence(files, onError) {
       const mine = ++generation;
       const audio = context();
-      Promise.all(files.map(loadBuffer)).then(loaded => {
+      if (!audio) {
+        if (onError) onError("no-webaudio");
+        return;
+      }
+      unlock();
+      const ready = audio.state === "running"
+        ? Promise.resolve()
+        : Promise.resolve(audio.resume()).catch(() => {});
+
+      Promise.all([ready].concat(files.map(loadBuffer))).then(results => {
+        const loaded = results.slice(1);
         if (mine !== generation) return;
         let when = audio.currentTime + 0.04;
         loaded.forEach((buffer, i) => {
@@ -817,10 +844,12 @@
           source.start(when, start, duration);
           when += duration + GAP;
         });
-      }).catch(() => { /* a missing or undecodable file just stays silent */ });
+      }).catch(err => {
+        if (onError) onError(String((err && err.message) || err || "playback failed"));
+      });
     }
 
-    return { playSequence, stop() { generation++; } };
+    return { playSequence, unlock, stop() { generation++; } };
   })();
 
   let currentQuestion = null;
@@ -846,7 +875,16 @@
       optionsEl.appendChild(btn);
     });
 
-    if (q.mode === "audio") player.playSequence(q.audioFiles);
+    if (q.mode === "audio") playCurrent();
+  }
+
+  function playCurrent() {
+    if (!currentQuestion || !currentQuestion.audioFiles) return;
+    replayBtn.textContent = "Play again";
+    player.playSequence(currentQuestion.audioFiles, reason => {
+      // Surface it rather than failing silently — a mute button is impossible to diagnose.
+      replayBtn.textContent = "Audio failed: " + reason;
+    });
   }
 
   function handleAnswer(selected, q) {
