@@ -1,0 +1,61 @@
+# Lessons
+
+Every CSV listed in `manifest.json` is fetched when the app opens and merged into one pool, deduplicated on the
+exact `(hanzi, pinyin, meaning)` triple. There's no lesson picker — everything drills together.
+
+## Adding a lesson from a phone
+
+1. Generate the CSV: paste the prompt below, plus your slides or textbook text, into any Claude session.
+2. On github.com (works in a mobile browser): open `app/decks/` → **Add file** → **Create new file** → name it
+   `lesson01.csv` → paste → commit.
+3. Open `manifest.json`, add `"lesson01.csv"` to the list → commit.
+4. Reload the app. The new words are in.
+
+## Prompt for generating a lesson CSV
+
+Copy everything between the lines.
+
+---
+
+Convert the material at the end of this message into CSV for a Taiwanese Mandarin flashcard app.
+
+Output **only** the CSV — no commentary, no explanation, no code fence.
+
+Header row, exactly these columns:
+
+```
+hanzi,pinyin,meaning,tags
+```
+
+- `hanzi` — Traditional characters as used in Taiwan (謝謝, not 谢谢).
+- `pinyin` — **tone marks, never tone numbers**: `xièxie`, not `xie4xie5`. Neutral tone gets no mark. Write
+  multi-word phrases with spaces (`wǒ jiào`), single words joined (`zàijiàn`).
+- `meaning` — short English gloss, lowercase unless it's a proper noun. If the gloss contains a comma, wrap the
+  whole field in double quotes: `"to go, to leave"`.
+- `tags` — one short free-text label for the lesson or topic, e.g. `greetings` or `lesson 3`.
+
+Rules:
+
+- One row per word or phrase.
+- Every row needs all three of hanzi, pinyin and meaning. Drop anything you can't supply all three for.
+- **No duplicate values within a column.** If two entries would end up with the same English gloss, make them
+  distinguishable (`rice` vs `cooked rice`). Duplicates make multiple-choice questions ambiguous.
+- Aim for at least 10 rows; fewer than 5 distinct values in a column disables that question type entirely.
+- UTF-8, no byte-order mark.
+
+Material:
+
+<paste the lesson text here>
+
+---
+
+## Format reference
+
+```csv
+hanzi,pinyin,meaning,tags
+謝謝,xièxie,thank you,greetings
+魚,yú,fish,animals
+```
+
+`tags` is stored but not yet used by the app — per-lesson filtering is a deferred feature. See `SPEC.md` for the
+full data model and why the app requires 5+ distinct values per column.
