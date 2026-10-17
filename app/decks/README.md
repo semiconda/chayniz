@@ -4,9 +4,11 @@ Written for whoever (human or Claude session) turns course material into a deck.
 end to end; the rules exist because specific things break the quiz if you get them wrong, and
 each one says what breaks.
 
-Every CSV listed in `manifest.json` is fetched when the app opens and merged into a single
-pool, deduplicated on the exact `(hanzi, pinyin, meaning)` triple. There is no lesson picker —
-all decks drill together. That is why cross-deck duplicates matter.
+Every CSV listed in `manifest.json` is fetched when the app opens. The start screen shows one
+chip per deck, and the selected ones are merged into a single pool, deduplicated on the exact
+`(hanzi, pinyin, meaning)` triple. Wrong options come from that same merged pool, so selecting
+several lessons mixes their vocabulary — which is why cross-deck duplicates matter, and why the
+length rule below has to hold across decks, not just within one.
 
 ## The workflow
 
@@ -118,9 +120,14 @@ python -c "import fitz; d=fitz.open(r'<book.pdf>'); [d[n].get_pixmap(dpi=115).sa
 
 Needs `pip install pypdf pymupdf`. Write slices and images to a scratch directory, never the repo.
 
-**PDF page = printed page + 40** in this edition. Lesson 1's vocabulary is printed pages 6-10
-(PDF 46-50). Each lesson has a VOCABULARY section; take the numbered entries and their
-sub-entries, and stop where SYNTAX PRACTICE begins.
+**PDF page = printed page + 40** in this edition. Each lesson has a VOCABULARY section; take the
+numbered entries *and their sub-entries* (indented words under an example sentence are vocabulary
+too), continue through SUPPLEMENTARY VOCABULARY, and stop where SYNTAX PRACTICE begins.
+
+| lesson | printed pages | PDF pages |
+|---|---|---|
+| 1 | 6-10 | 46-50 |
+| 2 | 24-28 | 64-68 |
 
 Three traps specific to this book:
 
@@ -131,6 +138,13 @@ Three traps specific to this book:
   sentences use `búshì`. Take the citation form, `bù`.
 - **Where it offers full and neutral tone variants** (`míngzì / míngzi`), prefer the reading in
   Taiwan's MOE dictionary — which is also the one with audio. For 名字 that is `míngzì`.
+- **Long fixed phrases usually have to be dropped.** Lesson 2 teaches 好久不見, the only
+  four-character item in the whole corpus. Its questions would show one long option among three
+  short ones — answerable without reading a single character, so the slot teaches nothing. Omitting
+  it costs less than keeping it. Revisit if enough four-character words accumulate to form a crowd.
+- **A later lesson often re-glosses a word from an earlier one.** Lesson 2 lists 好 again as "very"
+  where lesson 1 has it as "good"; the hanzi column must stay unique across decks, so the second
+  reading is dropped rather than duplicated.
 
 Things that reliably go wrong with any source:
 

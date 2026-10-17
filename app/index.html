@@ -101,6 +101,9 @@
     border: 1px solid var(--border);
     font-size: 0.95rem;
   }
+  /* Lesson chips size to their text and wrap, so the row stays usable as lessons accumulate. */
+  #lesson-row { flex-wrap: wrap; }
+  #lesson-row .toggle { flex: 0 1 auto; min-width: 86px; }
   .toggle.on {
     background: var(--accent);
     color: #fff;
@@ -225,6 +228,11 @@
     <p class="subtitle">Taiwanese Mandarin drills.</p>
     <div class="file-row">
       <div id="load-status" class="status">Loading lessons…</div>
+
+      <div class="toggle-group hidden" id="lesson-group">
+        <div class="toggle-label">Lessons</div>
+        <div class="toggle-row" id="lesson-row"></div>
+      </div>
 
       <div class="toggle-group">
         <div class="toggle-label">How to practise</div>
@@ -561,8 +569,10 @@
   const startBtn = document.getElementById("start-btn");
   const loadScreen = document.getElementById("load-screen");
   const quizScreen = document.getElementById("quiz-screen");
-  const toggleButtons = Array.from(document.querySelectorAll(".toggle"));
+  const toggleButtons = Array.from(document.querySelectorAll(".toggle[data-toggle]"));
   const toggleNote = document.getElementById("toggle-note");
+  const lessonGroup = document.getElementById("lesson-group");
+  const lessonRow = document.getElementById("lesson-row");
   const replayBtn = document.getElementById("replay-btn");
   const promptLabelEl = document.getElementById("prompt-label");
   const promptValueEl = document.getElementById("prompt-value");
@@ -571,6 +581,8 @@
 
   let quiz = null;
   let audioIndex = new Set();
+  let bundledDecks = [];              // every lesson the manifest lists, parsed once on load
+  const selectedDecks = new Set();    // filenames of the lessons currently being drilled
 
   function setStatus(text, isError) {
     loadStatus.textContent = text;
@@ -613,21 +625,73 @@
     return merged;
   }
 
+  // "lesson02.csv" -> "Lesson 2". Anything else keeps its own name, minus the extension.
+  function deckTitle(fileName) {
+    const base = fileName.replace(/\.csv$/i, "");
+    const numbered = /^lesson[-_ ]?0*(\d+)$/i.exec(base);
+    return numbered ? "Lesson " + numbered[1] : base;
+  }
+
   async function loadBundledDecks() {
     const manifestRes = await fetch("decks/manifest.json", { cache: "no-store" });
     if (!manifestRes.ok) throw new Error("manifest " + manifestRes.status);
     const deckFiles = await manifestRes.json();
 
-    const lists = [];
-    let skipped = 0;
+    const decks = [];
     for (const name of deckFiles) {
       const res = await fetch("decks/" + name, { cache: "no-store" });
       if (!res.ok) continue;
       const parsed = rowsToItems(parseCSV(await res.text()));
-      lists.push(parsed.items);
-      skipped += parsed.skipped;
+      decks.push({ name, title: deckTitle(name), items: parsed.items, skipped: parsed.skipped });
     }
-    return { items: mergeItems(lists), skipped, lessons: lists.length };
+    if (decks.length === 0) throw new Error("no deck loaded");
+    return decks;
+  }
+
+  // Selecting several lessons merges them into one pool, so questions — and the wrong options,
+  // which are drawn from that same pool — mix across every lesson selected.
+  function applyDeckSelection() {
+    const chosen = bundledDecks.filter(d => selectedDecks.has(d.name));
+    lessonRow.querySelectorAll("button").forEach(btn => {
+      const on = selectedDecks.has(btn.dataset.deck);
+      btn.classList.toggle("on", on);
+      btn.setAttribute("aria-pressed", String(on));
+    });
+
+    if (chosen.length === 0) {
+      quiz = null;
+      startBtn.disabled = true;
+      toggleNote.textContent = "";
+      setStatus("Pick at least one lesson.", true);
+      return;
+    }
+
+    const label = chosen.length === bundledDecks.length && chosen.length > 1
+      ? "from all " + chosen.length + " lessons"
+      : "from " + chosen.map(d => d.title).join(", ");
+    quiz = null;   // if useItems rejects this selection it must not leave the previous one armed
+    useItems(
+      mergeItems(chosen.map(d => d.items)),
+      chosen.reduce((n, d) => n + d.skipped, 0),
+      label);
+  }
+
+  function renderLessonChips() {
+    lessonRow.textContent = "";
+    for (const deck of bundledDecks) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "toggle";
+      btn.dataset.deck = deck.name;
+      btn.textContent = deck.title;
+      btn.addEventListener("click", () => {
+        if (selectedDecks.has(deck.name)) selectedDecks.delete(deck.name);
+        else selectedDecks.add(deck.name);
+        applyDeckSelection();
+      });
+      lessonRow.appendChild(btn);
+    }
+    lessonGroup.classList.toggle("hidden", bundledDecks.length < 2);
   }
 
   chooseFileBtn.addEventListener("click", () => {
@@ -643,6 +707,7 @@
     const reader = new FileReader();
     reader.onload = () => {
       const { items, skipped } = rowsToItems(parseCSV(String(reader.result)));
+      lessonGroup.classList.add("hidden");   // the chips describe the bundled lessons, not this file
       useItems(items, skipped, "from " + file.name);
     };
     reader.onerror = () => setStatus("Could not read that file.", true);
@@ -707,8 +772,10 @@
     audioIndex = await loadAudioIndex();
     refreshToggles();
     try {
-      const { items, skipped, lessons } = await loadBundledDecks();
-      useItems(items, skipped, "from " + lessons + (lessons === 1 ? " lesson" : " lessons"));
+      bundledDecks = await loadBundledDecks();
+      bundledDecks.forEach(d => selectedDecks.add(d.name));
+      renderLessonChips();
+      applyDeckSelection();
     } catch (err) {
       setStatus(
         "Could not load the built-in lessons. Opening this file straight from disk blocks that — " +

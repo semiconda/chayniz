@@ -28,6 +28,9 @@ character↔pinyin, because reading a character aloud is a character skill. Turn
 alone gives only pinyin↔english. Listening always runs *from* Chinese outward — English is
 never the prompt, since English isn't what you're learning.
 
+Pick one or more **lessons** above the practice toggles. Several selected means questions *and*
+wrong options are mixed across all of them.
+
 Tap an answer for immediate feedback, then **Next**. There's no session length: stop whenever.
 
 **Nothing is saved.** Closing the tab loses your session, and that's deliberate — see
@@ -37,8 +40,8 @@ Tap an answer for immediate feedback, then **Next**. There's no session length: 
 
 ## Adding a lesson
 
-Lessons are CSV files in [`app/decks/`](app/decks/), listed in `app/decks/manifest.json`. They
-are all merged into one pool — there is no lesson picker.
+Lessons are CSV files in [`app/decks/`](app/decks/), listed in `app/decks/manifest.json`. The
+start screen shows a chip per lesson; a new one appears there automatically.
 
 **The full authoring guide is [`app/decks/README.md`](app/decks/README.md)**, including a
 ready-to-paste prompt for generating a deck with an AI and the rules that matter (traditional
@@ -118,6 +121,8 @@ A single static page. No backend, no build step, no dependencies, no framework. 
 `app/index.html` and it runs.
 
 - **Lessons** are fetched from `app/decks/` and merged, deduplicated on `(hanzi, pinyin, meaning)`.
+  The lesson chips choose which decks go into that pool — and because wrong options are drawn from
+  the same pool, selecting several lessons mixes their vocabulary into each other's options too.
 - **Questions are generated at render time**, not stored. The same word gets asked different
   ways, and the three wrong options are drawn fresh each time, so you learn the word rather
   than the shape of the question.

@@ -12,6 +12,7 @@ app/
   decks/
     manifest.json     # list of deck filenames the app fetches and merges on load
     lesson01.csv      # vocabulary of 實用視聽華語 vol.1 lesson 1; decks mirror the textbook
+    lesson02.csv      # ...one file per lesson; each becomes a selectable chip on the start screen
     README.md         # paste-ready prompt for generating a lesson CSV
   audio/
     ni3.mp3 ...       # one MOE recording per toned syllable (1,223 files, bounded set)
@@ -62,9 +63,11 @@ is the whole deployment story. This keeps the "must work on a phone, no backend"
    reason). `tools/fetch_audio.py` is the offline corpus builder and must stay out of the runtime path.
 
 4. **UI (mobile-first, single screen flow).**
-   - **Load screen:** lesson-count confirmation, the four practice toggles (`allowedDirectionKeys()` maps toggle
-     state to the permitted direction keys — see the table in `SPEC.md`, and note the character/pinyin asymmetry),
-     a live count of question types and eligible words, and the "load your own CSV" fallback.
+   - **Load screen:** a chip per manifest deck (all selected by default; `applyDeckSelection()` re-merges the
+     chosen decks and rebuilds the quiz state, so deselecting a lesson removes its words as *questions and as
+     distractors* — see `SPEC.md`), the four practice toggles (`allowedDirectionKeys()` maps toggle state to the
+     permitted direction keys — see the table in `SPEC.md`, and note the character/pinyin asymmetry), a live
+     count of question types and eligible words, and the "load your own CSV" fallback.
    - **Question screen:** the prompt (e.g. the hanzi, or the meaning, depending on direction), 4 tappable option
      buttons sized for thumb use, immediate visual feedback (correct/incorrect) on tap, then a "next question"
      action.
@@ -107,7 +110,11 @@ Do not implement, even partially or as a "simple version," during v1 build-out:
    draws and confirm no two *consecutive* appearances show the identical 3-value distractor set. Also test at
    exactly the minimum dataset size (5 distinct values in a column) to confirm the resample-until-different logic
    still holds right at the boundary, not just comfortably above it.
-6. **Audio verification:** confirm the load screen reports how many words have audio (31 of 35 for the starter
+6. **Lesson-selection verification:** with two or more decks in the manifest, confirm all chips start selected
+   and the word count matches the merged total; deselect one and confirm the count drops, that none of its words
+   appear as questions, and — the easy thing to miss — that none appear as *wrong options* either; deselect all
+   and confirm "Pick at least one lesson" with Start disabled rather than an empty quiz.
+7. **Audio verification:** confirm the load screen reports how many words have audio (31 of 35 for the starter
    deck — the 4 exclusions are expected, see `SPEC.md`). Play several listening questions: audio should start
    automatically, "Play again" should replay it, playback should stop after the syllable rather than continuing
    into the spoken definition, and answering should reveal the character and pinyin. For a multi-syllable word,

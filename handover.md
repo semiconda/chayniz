@@ -12,8 +12,10 @@ added, or how validation works, update `README.md` in the same commit — alongs
 
 - **Live, tested on a phone including audio:** https://semiconda.github.io/chayniz/app/
 - **`app/index.html` is the whole app**: one file, no build step, no backend, no dependencies.
-- **Lessons ship with the site.** CSVs in `app/decks/`, listed in `app/decks/manifest.json`, fetched and merged
-  on page load. No upload step for normal use (a manual CSV picker remains as a fallback).
+- **Lessons ship with the site.** CSVs in `app/decks/`, listed in `app/decks/manifest.json`, fetched on page
+  load. The start screen shows a chip per deck (all on by default) and merges the selected ones; because wrong
+  options are sampled from the same merged pool, selecting several lessons mixes their vocabulary into each
+  other's options. No upload step for normal use (a manual CSV picker remains as a fallback).
 - **Eight question types**: six text directions (character ↔ meaning, character ↔ pinyin, pinyin ↔ meaning) and
   two listening ones (audio → pinyin, audio → character), plus audio → meaning. Four start-screen toggles
   (Reading / Hearing / Pinyin / Characters) select which are used; the character/pinyin asymmetry is deliberate
@@ -26,8 +28,8 @@ added, or how validation works, update `README.md` in the same commit — alongs
   Keep doing that.
 
 **Content follows the textbook.** Decks mirror 新版實用視聽華語 (Practical Audio-Visual Chinese) vol. 1 — the
-standard book at Taiwanese university language centres, and the user's course text. `app/decks/lesson01.csv` is
-done (31 words); lessons 2-12 remain. An earlier invented `basics.csv` was retired when lesson 1 landed, because
+standard book at Taiwanese university language centres, and the user's course text. `app/decks/lesson01.csv` (31 words) and
+`lesson02.csv` (24 words) are done; lessons 3-12 remain. The page-range table is in `app/decks/README.md`. An earlier invented `basics.csv` was retired when lesson 1 landed, because
 it collided with the book's vocabulary on 25 values and would have collided with every future lesson too.
 
 The book is a 332-page scanned PDF with no text layer, so pages must be rendered as images and read visually —
@@ -111,7 +113,12 @@ Learning Taiwanese Mandarin from zero. The app is for:
 
 ## Open items
 
-- **Add a real lesson.** The highest-value next step; see "Current state" above.
+- **Lessons 3-12.** Lessons 1 and 2 were done by hand to validate the guide; from here parallel subagents are
+  the agreed approach, one lesson each, following `app/decks/README.md`.
+- **Lesson chips don't scale past ~8 lessons.** They wrap and stay tappable, but drilling one lesson means
+  deselecting eleven. An "all / none" control, or selecting a range, will be wanted before volume 1 is finished.
+- **好久不見 is deliberately absent** from lesson 2: the only four-character word in the corpus, so its questions
+  were answerable by shape alone. Add it back once four-character words form a crowd.
 - **`hanzi` is currently required** in every row. Making it optional would allow pinyin-only decks (sound and
   meaning first, characters later). Raised, not yet decided.
 - **Distractors aren't targeted at pinyin traps** (yu/you, iu/iou, ui/uei). They now match the answer's *length*,

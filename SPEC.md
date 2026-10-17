@@ -79,8 +79,15 @@ hanzi,pinyin,meaning,tags
 
 **Decks and merging.** Every CSV listed in `app/decks/manifest.json` is fetched on page load and merged into one
 pool, deduplicated on the exact `(hanzi, pinyin, meaning)` triple so a word repeated across lessons is drilled
-once. There is no deck-selection UI — all lessons drill together (per-lesson filtering is the deferred tag-filter
-feature below). A deck that fails to fetch is skipped rather than breaking the others.
+once. A deck that fails to fetch is skipped rather than breaking the others.
+
+**Lesson selection.** The start screen shows one chip per deck in the manifest, all on by default. Deselecting a
+lesson removes its words from the pool entirely — including as *wrong options*, since distractors are sampled
+from the same pool the questions come from. Selecting several lessons therefore mixes both the questions and the
+options across all of them, which is the point: a word is only properly known when it can be told apart from
+everything else learned so far. Selecting none is an error state, not an empty quiz. The chips are hidden when
+the manifest holds a single deck (nothing to choose) and when a CSV is loaded by hand (they describe the bundled
+lessons, not that file). This is lesson-level filtering only; the richer tag-filter UI remains deferred below.
 
 Decks mirror the user's course text, 新版實用視聽華語 (Practical Audio-Visual Chinese) vol. 1, one file per lesson —
 `app/decks/lesson01.csv` and so on. `app/decks/README.md` is the authoring guide and doubles as the worked example
