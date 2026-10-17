@@ -173,6 +173,13 @@ Each question:
    equal to the correct answer (so a duplicate value elsewhere in the dataset can't appear as a wrong option).
    For `audio → hanzi`, distractors additionally exclude any item sharing the correct item's pinyin — a homophone
    option would make the question impossible to answer by ear.
+
+   **Same-length options.** Where the answer column is `hanzi` or `pinyin`, distractors are drawn from items with
+   the same syllable count as the answer (measured as the character count of `hanzi`). A two-syllable answer sitting
+   among one-syllable distractors is solvable on shape alone, without knowing any Chinese. When a deck holds fewer
+   than three same-length alternatives the app fills the remainder from other lengths rather than refusing to ask —
+   the giveaway is unavoidable at that point anyway — so decks should carry at least four words of each length they
+   use. English glosses are exempt: their length doesn't track the Chinese word's.
 4. Options are shown in random order.
 
 **Distractor-repeat rule.** The app keeps an in-memory record (cleared on reload — not persisted), keyed by
@@ -231,8 +238,13 @@ This is checkable two ways:
   unaffected and sound exactly right; longer words sound like syllables read in isolation.
 - **Syllables that only occur through sandhi or as contextual neutrals have no recording.** MOE records citation
   readings only, so `bú` (sandhi form of `bù`) and reduced neutrals like the second syllable of `xièxie` are
-  absent. Items containing them are excluded from listening questions rather than approximated. In the starter
-  deck this affects 4 of 35 items.
+  absent. Items containing them are excluded from listening questions rather than approximated.
+- **16 syllables are missing from the source corpus entirely**, because MOE shipped no recording for the only
+  character that carries them — including common ones: `wo3` 我, `che1` 車, `guo4` 過, `nv3` 女, `men5` 們,
+  `zi5` 子, `tou5` 頭, `zhe5` 著, `fen3` 粉, `man3` 滿, `nong4` 弄, `fo2` 佛, `lia3` 倆, `jiao2` 嚼, `diao3`,
+  `ye5`. Any word containing one stays reading-only. These could in principle be recovered from MOE's
+  word-level audio package (the opening syllable of a word beginning with that character), which is licensed
+  identically but ships as a 15 GB five-part archive.
 - Audio needs the page served over http(s), same as the bundled lessons.
 
 ## Open items for independent review

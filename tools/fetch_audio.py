@@ -107,11 +107,12 @@ def main():
     cache = Path(__file__).resolve().parent / "_moe_audio.zip"
 
     with zipfile.ZipFile(download_archive(cache)) as archive:
-        available = set()
+        # 22 files carry an "A" suffix (alternate readings of 多音字), so match loosely.
+        available = {}
         for entry in archive.namelist():
-            found = re.fullmatch(r"word_wav/word_wav/(\d{4})\.wav", entry)
+            found = re.fullmatch(r"word_wav/word_wav/(\d{4})([A-Z]?)\.wav", entry)
             if found:
-                available.add(found.group(1))
+                available.setdefault(found.group(1), found.group(1) + found.group(2))
         print("recordings in archive: %d" % len(available))
 
         index, skipped = load_syllable_index(available)
@@ -122,7 +123,7 @@ def main():
 
         done = 0
         for syllable, num in sorted(todo.items()):
-            wav = archive.read("word_wav/word_wav/%s.wav" % num)
+            wav = archive.read("word_wav/word_wav/%s.wav" % available[num])
             proc = subprocess.run(
                 ["ffmpeg", "-loglevel", "error", "-y", "-i", "pipe:0",
                  "-ac", "1", "-b:a", "32k", "-f", "mp3", "pipe:1"],

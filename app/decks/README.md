@@ -1,19 +1,138 @@
-# Lessons
+# Lessons — how to add one
 
-Every CSV listed in `manifest.json` is fetched when the app opens and merged into one pool, deduplicated on the
-exact `(hanzi, pinyin, meaning)` triple. There's no lesson picker — everything drills together.
+Written for whoever (human or Claude session) turns course material into a deck. Follow this
+end to end; the rules exist because specific things break the quiz if you get them wrong, and
+each one says what breaks.
 
-## Adding a lesson from a phone
+Every CSV listed in `manifest.json` is fetched when the app opens and merged into a single
+pool, deduplicated on the exact `(hanzi, pinyin, meaning)` triple. There is no lesson picker —
+all decks drill together. That is why cross-deck duplicates matter.
 
-1. Generate the CSV: paste the prompt below, plus your slides or textbook text, into any Claude session.
-2. On github.com (works in a mobile browser): open `app/decks/` → **Add file** → **Create new file** → name it
-   `lesson01.csv` → paste → commit.
-3. Open `manifest.json`, add `"lesson01.csv"` to the list → commit.
-4. Reload the app. The new words are in.
+## The workflow
 
-## Prompt for generating a lesson CSV
+1. Extract the vocabulary from the lesson PDF (see **Working from a PDF** below).
+2. Write it to `app/decks/<lesson-name>.csv` in the format below.
+3. **Run the validator** — this is not optional, it catches the mistakes that are invisible
+   by eye:
+   ```
+   python tools/check_deck.py app/decks/<lesson-name>.csv
+   ```
+   Fix every `ERROR`. Read every `WARN` and decide deliberately.
+4. Add `"<lesson-name>.csv"` to `manifest.json`.
+5. Commit both files. The site picks the lesson up on next load.
 
-Copy everything between the lines.
+## Format
+
+```csv
+hanzi,pinyin,meaning,tags
+你好,nǐ hǎo,hello,greetings
+謝謝,xièxie,thank you,greetings
+```
+
+| column | required | rules |
+|---|---|---|
+| `hanzi` | yes | Traditional characters only (謝謝, never 谢谢) |
+| `pinyin` | yes | tone marks, never tone numbers; citation tones; one space between syllables of a multi-syllable word is fine, as is writing it joined |
+| `meaning` | yes | short English gloss; quote the field if it contains a comma |
+| `tags` | no | free text, e.g. `lesson 3`. Stored but not yet used |
+
+## The rules, and what breaks if you ignore them
+
+### Traditional characters, not simplified
+This is Taiwanese Mandarin. 謝謝 not 谢谢. The validator catches common simplified characters
+but its list is not exhaustive, so don't rely on it alone.
+
+### Tone marks, not tone numbers
+Write `nǐ hǎo`, not `ni3hao3`. The learner reads this column directly; tone numbers are an
+input convenience that this app never needs, since answers are multiple-choice.
+
+### Citation tones, not sandhi tones — but keep genuine neutral tones
+Write `bù kèqì`, not `bú kèqì`. Write `yī` for 一, not `yì`/`yí`.
+
+Sandhi is what a speaker does out loud — 不 becomes *bú* before a fourth tone, 你好 is really
+said *ní hǎo*. Dictionaries list the citation form and leave sandhi to the speaker, and so do
+we. This isn't pedantry: the audio corpus only contains citation readings, so a sandhi
+spelling silently costs that word all of its listening questions.
+
+**A neutral tone is a different thing and must be kept.** In 謝謝 `xièxie`, 名字 `míngzi`,
+對不起 `duìbuqǐ` and 沒關係 `méi guānxi`, the unmarked syllable *is* the dictionary reading —
+it is not sandhi, and "correcting" it to `xièxiè` or `duìbùqǐ` would be wrong. Those words
+simply have no audio, which is the right trade: never change a pronunciation to satisfy a tool.
+
+The rule of thumb: 不 written as `bú` and 一 written as `yì`/`yí` are always sandhi and always
+wrong in this file. An unmarked (neutral) syllable is a lexical fact — look it up if unsure.
+
+### One syllable per character
+`謝謝` has two characters, so its pinyin must have two syllables. The validator aligns them and
+errors if the counts disagree — which is how typos, missing syllables and stray spaces get
+caught. A mismatch almost always means the pinyin is wrong.
+
+### No duplicate values in any column — including across other decks
+If two rows share a meaning ("rice" for both 飯 and 米), a question showing both as options has
+two correct answers and is unanswerable. The same applies to duplicate hanzi or pinyin.
+Disambiguate instead: `rice (cooked)` and `rice (grain)`.
+
+The validator checks the other decks too, because decks are merged.
+
+### Give each word length a crowd
+Wrong options are drawn from words with the **same number of characters** as the answer. If a
+deck has one two-character word among thirty one-character words, that word's questions show
+one long option and three short ones — solvable without knowing any Chinese.
+
+Aim for **at least four words of each length** you include. If you only have one or two
+two-character words, either add a few more or drop them to another lesson. The validator warns
+when a length group is too small.
+
+### At least 10 rows, and 5+ distinct values per column
+Below 5 distinct values in a column, the app cannot build four options with a wrong set that
+varies between showings, and it disables that question type entirely.
+
+## Working from a PDF
+
+Read the PDF and pull out the vocabulary. Things that reliably go wrong:
+
+- **Teaching slides repeat words across lessons.** Check new words against the existing decks
+  before writing — the validator will catch collisions, but it's faster not to create them.
+- **Textbook glosses are often long** ("to be willing to do something"). Shorten to something
+  that fits a phone button: `to be willing`. The gloss has to work as a tappable option.
+- **PDFs may print pinyin without tone marks, or with tone numbers.** Restore the tone marks.
+  If the PDF genuinely doesn't give tones, look the word up rather than guessing — a wrong
+  tone is worse than a missing word, because the learner will drill the error.
+- **Watch for simplified characters** in materials sourced from the mainland.
+- **Grammar patterns and example sentences are not vocabulary.** A row should be a word or a
+  short fixed phrase, not a sentence. Sentences don't work as multiple-choice options and have
+  no useful audio.
+- **Measure words, particles and bound forms are fine** as rows (個, 嗎, 的), but give them a
+  gloss that reads sensibly as an option, e.g. `question particle`.
+- **One reading per row.** If a character has two pronunciations with different meanings, make
+  two rows with distinct meanings — but remember the hanzi column must stay unique, so prefer
+  picking the reading the lesson actually teaches.
+
+Order within the file doesn't matter; the app shuffles.
+
+## Audio coverage
+
+Listening questions play one recording per syllable from `../audio/`. A word gets listening
+questions only if **every** syllable in its pinyin has a recording; otherwise it still works
+perfectly well as a reading question. The validator reports which rows lack audio.
+
+Syllables are missing in two situations:
+
+1. **Sandhi and reduced-neutral forms** — `bú`, or the second syllable of `xièxie`. Usually a
+   sign you should have written the citation tone; fix the pinyin.
+2. **Genuine gaps in the source corpus.** 16 syllables were never recorded by the Ministry of
+   Education, including some common ones: `wo3` (我), `che1` (車), `guo4` (過), `nv3` (女),
+   `men5` (們), `zi5` (子), `tou5` (頭), `zhe5` (著), `fen3` (粉), `man3` (滿), `nong4` (弄),
+   `fo2` (佛), `lia3` (倆), `jiao2` (嚼), `diao3`, `ye5`. Nothing you can do in the CSV fixes
+   these — the word simply stays reading-only.
+
+Do **not** work around a missing syllable by changing the pinyin to something that does have
+audio. That would teach the learner a wrong pronunciation to satisfy a tool.
+
+## Reference: prompt for generating a deck with an LLM
+
+If you'd rather have a model do the extraction, paste the material after this prompt. Still run
+the validator on what comes back — models get tone marks and sandhi wrong routinely.
 
 ---
 
@@ -21,29 +140,26 @@ Convert the material at the end of this message into CSV for a Taiwanese Mandari
 
 Output **only** the CSV — no commentary, no explanation, no code fence.
 
-Header row, exactly these columns:
-
-```
-hanzi,pinyin,meaning,tags
-```
+Header row, exactly: `hanzi,pinyin,meaning,tags`
 
 - `hanzi` — Traditional characters as used in Taiwan (謝謝, not 谢谢).
-- `pinyin` — **tone marks, never tone numbers**: `xièxie`, not `xie4xie5`. Neutral tone gets no mark. Write
-  multi-word phrases with spaces (`wǒ jiào`), single words joined (`zàijiàn`).
-- `meaning` — short English gloss, lowercase unless it's a proper noun. If the gloss contains a comma, wrap the
-  whole field in double quotes: `"to go, to leave"`.
-- `tags` — one short free-text label for the lesson or topic, e.g. `greetings` or `lesson 3`.
+- `pinyin` — tone marks, never tone numbers: `xièxie`, not `xie4xie5`. Use **citation tones**:
+  write `bù kèqì` not `bú kèqì`, and `yī` not `yì`. The number of pinyin syllables must equal
+  the number of characters.
+- `meaning` — short English gloss, lowercase unless a proper noun, short enough to fit a phone
+  button. If it contains a comma, wrap the field in double quotes.
+- `tags` — one short label for the lesson or topic.
 
 Rules:
 
-- One row per word or phrase.
-- Every row needs all three of hanzi, pinyin and meaning. Drop anything you can't supply all three for.
-- **No duplicate values within a column.** If two entries would end up with the same English gloss, make them
-  distinguishable (`rice` vs `cooked rice`). Duplicates make multiple-choice questions ambiguous.
-- Aim for at least 10 rows; fewer than 5 distinct values in a column disables that question type entirely.
-- Write **citation tones, not sandhi tones**: `bù kèqì`, not `bú kèqì`. Sandhi is what a speaker does out loud;
-  it isn't how the syllable is listed, and the audio corpus only holds citation readings.
+- One row per word or short fixed phrase. Never a full sentence.
+- No two rows may share a hanzi, a pinyin, or a meaning. Disambiguate glosses that would
+  collide: `rice (cooked)` vs `rice (grain)`.
+- Include at least four words of each character-length you use (four or more one-character
+  words, four or more two-character words, and so on), or omit that length.
+- At least 10 rows, with 5+ distinct values in every column.
 - UTF-8, no byte-order mark.
+- Skip anything you cannot give all three of hanzi, pinyin and meaning for.
 
 Material:
 
@@ -51,21 +167,8 @@ Material:
 
 ---
 
-## Format reference
+## Reference: why the app needs 5+ distinct values
 
-```csv
-hanzi,pinyin,meaning,tags
-謝謝,xièxie,thank you,greetings
-魚,yú,fish,animals
-```
-
-`tags` is stored but not yet used by the app — per-lesson filtering is a deferred feature. See `SPEC.md` for the
-full data model and why the app requires 5+ distinct values per column.
-
-## Audio coverage
-
-Listening questions are generated by playing each syllable's recording from `../audio/`. An item only gets
-listening questions if *every* syllable in its pinyin has a recording; otherwise it still works fine as a reading
-question. Syllables that exist only through tone sandhi (`bú`) or as reduced neutrals (the second syllable of
-`xièxie`) have no recording, because the source dictionary lists citation readings only — which is why writing
-citation tones above matters.
+See `SPEC.md`. In short: a question shows one correct option and three wrong ones, and the
+wrong set must be able to differ between two showings of the same question. With only four
+distinct values there is exactly one possible wrong set, so it would repeat every time.

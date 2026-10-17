@@ -437,16 +437,13 @@
     return a;
   }
 
-  function sampleThree(pool) {
-    return shuffled(pool).slice(0, 3);
-  }
-
   function setKey(values) {
     return values.slice().sort().join("");
   }
 
   function createQuizState(items, audioAvailable) {
     const distinct = distinctValuesByColumn(items);
+    const syllableCount = items.map(it => Array.from(it.hanzi).length);
     const audioFor = items.map(it =>
       audioAvailable && audioAvailable.size ? segmentPinyin(it.pinyin, audioAvailable) : null);
     const audioCount = audioFor.filter(Boolean).length;
@@ -461,32 +458,56 @@
       rowQueue = shuffled(items.map((_, i) => i));
     }
 
-    function distractorPool(row, direction) {
-      const correctValue = row[direction.answerCol];
-      if (direction.mode === "audio" && direction.answerCol !== "pinyin") {
-        // A homophone among the options would make the question unanswerable by ear.
-        return Array.from(new Set(
-          items.filter(it => it.pinyin !== row.pinyin).map(it => it[direction.answerCol])
-        )).filter(v => v !== correctValue);
+    // Options must not be separable without knowing any Chinese. A two-syllable answer among
+    // one-syllable distractors is solvable on shape alone, so same-length options are
+    // preferred wherever length is visible (hanzi and pinyin, not English glosses).
+    function distractorPool(rowIndex, direction) {
+      const row = items[rowIndex];
+      const col = direction.answerCol;
+      const correctValue = row[col];
+
+      const usable = [];
+      for (let i = 0; i < items.length; i++) {
+        if (items[i][col] === correctValue) continue;
+        // A homophone would make a listening question unanswerable by ear.
+        if (direction.mode === "audio" && items[i].pinyin === row.pinyin) continue;
+        usable.push(i);
       }
-      return distinct[direction.answerCol].filter(v => v !== correctValue);
+
+      const values = indices => Array.from(new Set(indices.map(i => items[i][col])));
+      if (col !== "hanzi" && col !== "pinyin") {
+        return { matched: values(usable), rest: [] };
+      }
+
+      const want = syllableCount[rowIndex];
+      const matched = values(usable.filter(i => syllableCount[i] === want));
+      const rest = values(usable).filter(v => matched.indexOf(v) < 0);
+      return { matched, rest };
+    }
+
+    function sampleDistractors(pool) {
+      const picked = shuffled(pool.matched).slice(0, 3);
+      if (picked.length < 3) {
+        picked.push.apply(picked, shuffled(pool.rest).slice(0, 3 - picked.length));
+      }
+      return picked;
     }
 
     function build(rowIndex, direction) {
       const row = items[rowIndex];
       const correctValue = row[direction.answerCol];
-      const pool = distractorPool(row, direction);
-      if (pool.length < 3) return null;
+      const pool = distractorPool(rowIndex, direction);
+      if (pool.matched.length + pool.rest.length < 3) return null;
 
       const trackKey = rowIndex + ":" + direction.key;
-      let distractors = sampleThree(pool);
+      let distractors = sampleDistractors(pool);
       let attempts = 0;
       while (
         lastDistractorSet[trackKey] !== undefined &&
         setKey(distractors) === lastDistractorSet[trackKey] &&
         attempts < DISTRACTOR_RESAMPLE_CAP
       ) {
-        distractors = sampleThree(pool);
+        distractors = sampleDistractors(pool);
         attempts++;
       }
       lastDistractorSet[trackKey] = setKey(distractors);
