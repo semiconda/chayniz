@@ -178,8 +178,14 @@ Each question:
 3. Builds 4 multiple-choice options: the correct value (from the picked row, in the answer column), plus 3
    distractors sampled uniformly at random from the *other* rows' values in that same column, excluding any value
    equal to the correct answer (so a duplicate value elsewhere in the dataset can't appear as a wrong option).
-   For `audio → hanzi`, distractors additionally exclude any item sharing the correct item's pinyin — a homophone
-   option would make the question impossible to answer by ear.
+   **Homophones.** Mandarin has many (九 and 久 are both *jiǔ*; 他 and 她 are both *tā*), and telling them apart is
+   part of learning the language, so both words stay in the deck. What must never happen is two of them sharing a
+   question. Whenever the prompt identifies the word by sound alone — any audio direction, or either direction
+   prompted by `pinyin` — distractors exclude every item whose pinyin equals the correct item's, because each of
+   them would be an equally correct answer. Where the prompt is a character or an English gloss no such ambiguity
+   exists, and a homophone makes an unusually good distractor. Note that when the *answer* column is `pinyin`
+   this costs nothing extra: homophones share that value, so the "exclude the correct value" rule already covers
+   them.
 
    **Same-length options.** Where the answer column is `hanzi` or `pinyin`, distractors are drawn from items with
    the same syllable count as the answer (measured as the character count of `hanzi`). A two-syllable answer sitting

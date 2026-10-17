@@ -45,7 +45,7 @@ start screen shows a chip per lesson; a new one appears there automatically.
 
 **The full authoring guide is [`app/decks/README.md`](app/decks/README.md)**, including a
 ready-to-paste prompt for generating a deck with an AI and the rules that matter (traditional
-characters, tone marks not numbers, citation tones not sandhi, no duplicate values across
+characters, tone marks not numbers, citation tones not sandhi, no duplicate glosses across
 decks, enough words of each length).
 
 The short version:

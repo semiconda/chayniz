@@ -50,7 +50,8 @@ is the whole deployment story. This keeps the "must work on a phone, no backend"
      minimum-dataset-size rule in `SPEC.md`; 5, not 4 — see `SPEC.md` for why 4 can't satisfy the repeat rule),
      and skipping the two audio directions for items without complete syllable audio,
    - build the 4-option set (correct + 3 distractors, excluding duplicates of the correct value; for
-     `audio → hanzi` also excluding homophones of the answer),
+     any direction whose prompt is sound-only — the three audio ones and the two prompted by `pinyin` — also
+     excluding every item homophonous with the answer, since each would be equally correct),
    - apply the distractor-repeat rule: track last-shown-distractor-set keyed by **(row index, direction)** in
      a plain in-memory object (reset whenever a new CSV is loaded or the page reloads — never written to storage);
      on a match, resample until different, capped at a small fixed number of attempts,

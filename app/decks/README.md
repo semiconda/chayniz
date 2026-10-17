@@ -84,12 +84,19 @@ wrong in this file. An unmarked (neutral) syllable is a lexical fact — look it
 errors if the counts disagree — which is how typos, missing syllables and stray spaces get
 caught. A mismatch almost always means the pinyin is wrong.
 
-### No duplicate values in any column — including across other decks
+### No duplicate hanzi or meanings — including across other decks
 If two rows share a meaning ("rice" for both 飯 and 米), a question showing both as options has
-two correct answers and is unanswerable. The same applies to duplicate hanzi or pinyin.
-Disambiguate instead: `rice (cooked)` and `rice (grain)`.
+two correct answers and is unanswerable. The same applies to a repeated hanzi. Disambiguate
+instead: `rice (cooked)` and `rice (grain)`.
 
 The validator checks the other decks too, because decks are merged.
+
+**Shared pinyin is different — keep both words.** Homophones are ordinary in Mandarin: 九 and 久 are
+both *jiǔ*, 他 and 她 are both *tā*. Hearing them apart in context is a skill worth drilling, so
+never drop a word for colliding on pinyin alone. The app handles it: whenever a question's prompt
+is a recording or a line of pinyin, no homophone of the answer is offered as an option, because
+each would be equally correct. The validator prints a NOTE so you can confirm the two glosses are
+clearly different, and nothing more.
 
 ### Give each word length a crowd
 Wrong options are drawn from words with the **same number of characters** as the answer. If a
@@ -148,10 +155,9 @@ Three traps specific to this book:
   where lesson 1 has it as "good"; the hanzi column must stay unique across decks, so the second
   reading is dropped rather than duplicated. Lessons also simply repeat words — 中國 is taught again
   in lesson 3 — and the repeat belongs to whichever lesson had it first.
-- **A later lesson can collide with an earlier one on pinyin alone.** Lesson 4's 九 `jiǔ` has the same
-  reading as lesson 2's 久 `jiǔ`, which makes pinyin → character unanswerable. The fix is to decide
-  which word matters and edit the *older* deck — here 久 was dropped, since it only entered lesson 2
-  as a sub-entry of 好久不見, which is itself absent. Expect to revisit finished decks as you go.
+- **A later lesson can collide with an earlier one on pinyin alone** — lesson 4's 九 `jiǔ` and lesson
+  2's 久 `jiǔ`. Keep both; see the homophone rule above. Other kinds of collision (a repeated
+  character, a repeated gloss) do mean editing the older deck, so expect to revisit finished ones.
 - **Measure words need glosses that stay apart.** Lesson 4 alone teaches seven (枝, 種, 塊, 個, 杯, 位,
   本). "measure word" for all of them gives seven identical options; `measure word: books`,
   `measure word: cups` and so on keep them distinct and actually teach what each one counts.

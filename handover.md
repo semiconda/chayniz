@@ -72,6 +72,11 @@ because a phone/fresh session has nothing else to go on.
   neutral tones (`xièxie`, `míngzi`, `duìbuqǐ`) are dictionary readings and must be kept.
 - **Never approximate audio.** If a word's syllables aren't all in the corpus it gets no listening questions,
   rather than playing a near-miss. Never change a pronunciation to make a tool happy.
+- **Homophones stay in the deck.** 九/久 (`jiǔ`) and 他/她 (`tā`) are both kept; the app simply never offers
+  two homophones to the same question when the prompt is a sound or a line of pinyin. An earlier version dropped
+  one word of each pair, which the user rightly rejected: *"in chinese, several characters can have same
+  pronounciation. both should be there, just not mixed together in the same question."* Duplicate **hanzi** and
+  duplicate **meanings** are still errors — those genuinely do make a question unanswerable.
 - **Wrong options match the answer's length** (hanzi/pinyin only). A two-syllable answer among one-syllable
   distractors is solvable without knowing Chinese. Hence decks want 4+ words of each length.
 - **The interface is English.** The only non-English text is the Chinese being learned. Watch for browser/OS

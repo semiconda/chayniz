@@ -207,9 +207,17 @@ def check_one(target):
 
         for col, value in (("hanzi", hanzi), ("pinyin", pinyin), ("meaning", meaning)):
             if value in seen_in_file[col]:
-                report("ERROR", "%s: duplicate %s %r — also row %d. Two options that look "
-                                "identical make a question unanswerable"
-                       % (where, col, value, seen_in_file[col][value]))
+                if col == "pinyin":
+                    # Homophones are a fact of the language, not a mistake. Both words are kept;
+                    # the app refuses to offer them to the same question whenever the prompt is a
+                    # sound or a line of pinyin, so only the glosses have to stay distinct.
+                    report("NOTE", "%s: %s is also the reading of row %d. Both are kept; the app "
+                                   "never offers them as options to the same question"
+                           % (where, pinyin, seen_in_file[col][value]))
+                else:
+                    report("ERROR", "%s: duplicate %s %r — also row %d. Two options that look "
+                                    "identical make a question unanswerable"
+                           % (where, col, value, seen_in_file[col][value]))
             else:
                 seen_in_file[col][value] = number
 
@@ -240,8 +248,12 @@ def check_against_other_decks(target, seen_in_file):
             for col in REQUIRED:
                 value = (row.get(col) or "").strip()
                 if value and value in seen_in_file[col]:
-                    report("ERROR", "%s %r also appears in %s. Decks are merged, so this "
-                                    "collides" % (col, value, name))
+                    if col == "pinyin":
+                        report("NOTE", "%s is also the reading of a word in %s. Both are kept — "
+                                       "homophones never share a question" % (value, name))
+                    else:
+                        report("ERROR", "%s %r also appears in %s. Decks are merged, so this "
+                                        "collides" % (col, value, name))
 
 
 def check_option_fairness(lengths, total):
@@ -258,14 +270,17 @@ def check_option_fairness(lengths, total):
 def finish():
     errors = [m for level, m in problems if level == "ERROR"]
     warnings = [m for level, m in problems if level == "WARN"]
+    notes = [m for level, m in problems if level == "NOTE"]
     for message in errors:
         print("ERROR  " + message)
     for message in warnings:
         print("WARN   " + message)
+    for message in notes:
+        print("NOTE   " + message)
     if not problems:
         print("OK — no problems found.")
     else:
-        print("\n%d error(s), %d warning(s)" % (len(errors), len(warnings)))
+        print("\n%d error(s), %d warning(s), %d note(s)" % (len(errors), len(warnings), len(notes)))
     return 1 if errors else 0
 
 

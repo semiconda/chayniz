@@ -474,11 +474,17 @@
       const col = direction.answerCol;
       const correctValue = row[col];
 
+      // Homophones are ordinary in Mandarin (九 and 久 are both jiǔ) and telling them apart is
+      // worth drilling, so the deck keeps both. But when the prompt identifies the word by sound
+      // alone — a recording, or a line of pinyin — every homophone of the answer is equally
+      // correct, so no two of them may share a question. Where the prompt is a character or an
+      // English gloss there is no such ambiguity and homophones make excellent distractors.
+      const soundOnlyPrompt = direction.mode === "audio" || direction.promptCol === "pinyin";
+
       const usable = [];
       for (let i = 0; i < items.length; i++) {
         if (items[i][col] === correctValue) continue;
-        // A homophone would make a listening question unanswerable by ear.
-        if (direction.mode === "audio" && items[i].pinyin === row.pinyin) continue;
+        if (soundOnlyPrompt && items[i].pinyin === row.pinyin) continue;
         usable.push(i);
       }
 
