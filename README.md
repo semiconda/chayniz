@@ -43,6 +43,10 @@ Tap an answer for immediate feedback, then **Next**. There's no session length: 
 Lessons are CSV files in [`app/decks/`](app/decks/), listed in `app/decks/manifest.json`. The
 start screen shows a chip per lesson; a new one appears there automatically.
 
+To have a fresh Claude Code session do it, paste the short prompt under *Starting a fresh
+Claude Code session on a lesson* in the guide below. It points at the guide rather than
+repeating it, so it never goes stale.
+
 **The full authoring guide is [`app/decks/README.md`](app/decks/README.md)**, including a
 ready-to-paste prompt for generating a deck with an AI and the rules that matter (traditional
 characters, tone marks not numbers, citation tones not sandhi, no duplicate glosses across

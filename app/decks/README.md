@@ -207,10 +207,36 @@ Syllables are missing in two situations:
 Do **not** work around a missing syllable by changing the pinyin to something that does have
 audio. That would teach the learner a wrong pronunciation to satisfy a tool.
 
-## Reference: prompt for generating a deck with an LLM
+## Reference: starting a fresh Claude Code session on a lesson
 
-If you'd rather have a model do the extraction, paste the material after this prompt. Still run
-the validator on what comes back — models get tone marks and sandhi wrong routinely.
+Paste this, filling in the lesson number and the path to the book. It deliberately says almost
+nothing about the format — this file is the format, and it is the thing kept up to date.
+
+---
+
+Add lesson N of the textbook to this repo as a new deck.
+
+Read `app/decks/README.md` first and follow it exactly — the page-range table, the traps
+specific to this book, and the rules about duplicates, word length and audio. Read an existing
+deck (`app/decks/lesson01.csv`) as the worked example of the format.
+
+The book is at `<path to the PDF>`. It is a scan with no text layer, so pages have to be
+rendered as images and read visually; the commands are in the guide. Never commit the PDF.
+
+When you are done: add the file to `app/decks/manifest.json`, run `python tools/check_deck.py
+--all` and fix every ERROR, then commit. Tell me every judgement call you made — words you
+skipped, glosses you rewrote, anything you changed in an older deck — and why. Those are
+decisions about my study material, so I want to see them rather than have them buried.
+
+If the guide turns out to be wrong or missing something, fix the guide in the same commit.
+
+---
+
+## Reference: prompt for generating a deck in a plain chat (no repo access)
+
+For a model that can't read the repo — a phone chat, say. Paste the material after this prompt.
+Still run the validator on what comes back, via CI if you committed from a phone; models get
+tone marks and sandhi wrong routinely.
 
 ---
 
@@ -231,8 +257,10 @@ Header row, exactly: `hanzi,pinyin,meaning,tags`
 Rules:
 
 - One row per word or short fixed phrase. Never a full sentence.
-- No two rows may share a hanzi, a pinyin, or a meaning. Disambiguate glosses that would
-  collide: `rice (cooked)` vs `rice (grain)`.
+- No two rows may share a hanzi or a meaning. Disambiguate glosses that would collide:
+  `rice (cooked)` vs `rice (grain)`.
+- Two rows **may** share a pinyin. Homophones are normal and both words belong in the deck
+  (九 and 久 are both `jiǔ`); just make sure their glosses are clearly different.
 - Include at least four words of each character-length you use (four or more one-character
   words, four or more two-character words, and so on), or omit that length.
 - At least 10 rows, with 5+ distinct values in every column.
