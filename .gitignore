@@ -2,3 +2,7 @@ tools/_moe_audio.zip
 tools/_moe_audio.part
 __pycache__/
 *.pyc
+
+# Source material: copyrighted, large, and never belongs in a public repo.
+*.pdf
+source/
