@@ -714,10 +714,18 @@
 
     function playSequence(files) {
       const mine = ++generation;
+      // Start every syllable downloading at once. Fetching each only when the previous one
+      // finished left an audible gap mid-word, since a cold file costs ~0.5s of latency.
+      const clips = files.map(name => {
+        const el = new Audio("audio/" + name + ".mp3");
+        el.preload = "auto";
+        el.load();
+        return el;
+      });
       let index = 0;
       (function playNext() {
-        if (mine !== generation || index >= files.length) return;
-        const el = new Audio("audio/" + files[index] + ".mp3");
+        if (mine !== generation || index >= clips.length) return;
+        const el = clips[index];
         index++;
         let timer = null;
         el.addEventListener("loadedmetadata", () => {
