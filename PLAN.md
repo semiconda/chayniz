@@ -11,7 +11,7 @@ app/
   index.html          # the entire app: markup, styles, script — no build step
   decks/
     manifest.json     # list of deck filenames the app fetches and merges on load
-    basics.csv        # starter deck: ~35 basic words/phrases, also a format example
+    lesson01.csv      # vocabulary of 實用視聽華語 vol.1 lesson 1; decks mirror the textbook
     README.md         # paste-ready prompt for generating a lesson CSV
   audio/
     ni3.mp3 ...       # one MOE recording per toned syllable (1,223 files, bounded set)

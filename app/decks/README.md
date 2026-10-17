@@ -102,9 +102,37 @@ when a length group is too small.
 Below 5 distinct values in a column, the app cannot build four options with a wrong set that
 varies between showings, and it disables that question type entirely.
 
-## Working from a PDF
+## Working from the textbook
 
-Read the PDF and pull out the vocabulary. Things that reliably go wrong:
+The course text is **新版實用視聽華語 (Practical Audio-Visual Chinese) vol. 1**, a 332-page scan
+with **no text layer** — pages must be rendered as images and read visually. It is copyrighted
+and must never be committed (`.gitignore` blocks `*.pdf`).
+
+```bash
+# the reader caps at 100 MB, and this book is ~182 MB, so cut out a range first
+python tools/pdf_slice.py "<book.pdf>" 46 50 slice.pdf
+
+# or render pages straight to images, which also works for scans
+python -c "import fitz; d=fitz.open(r'<book.pdf>'); [d[n].get_pixmap(dpi=115).save('p%03d.png'%(n+1)) for n in range(45,50)]"
+```
+
+Needs `pip install pypdf pymupdf`. Write slices and images to a scratch directory, never the repo.
+
+**PDF page = printed page + 40** in this edition. Lesson 1's vocabulary is printed pages 6-10
+(PDF 46-50). Each lesson has a VOCABULARY section; take the numbered entries and their
+sub-entries, and stop where SYNTAX PRACTICE begins.
+
+Three traps specific to this book:
+
+- **It prints two romanizations.** The first is Taiwan Tongyong, the second is Hanyu Pinyin —
+  `jhōngwǔ/zhōngwǔ`, `siànzài/xiànzài`, `shìh/shì`. **Always take the second.** Tongyong writes
+  ㄑ as `c` and ㄒ as `s`, so a Tongyong form looks plausible and is silently wrong.
+- **It prints sandhi forms.** Entry 12 of lesson 1 is literally `不 / 不 (bù / bú)`, and example
+  sentences use `búshì`. Take the citation form, `bù`.
+- **Where it offers full and neutral tone variants** (`míngzì / míngzi`), prefer the reading in
+  Taiwan's MOE dictionary — which is also the one with audio. For 名字 that is `míngzì`.
+
+Things that reliably go wrong with any source:
 
 - **Teaching slides repeat words across lessons.** Check new words against the existing decks
   before writing — the validator will catch collisions, but it's faster not to create them.

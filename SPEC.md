@@ -82,9 +82,9 @@ pool, deduplicated on the exact `(hanzi, pinyin, meaning)` triple so a word repe
 once. There is no deck-selection UI — all lessons drill together (per-lesson filtering is the deferred tag-filter
 feature below). A deck that fails to fetch is skipped rather than breaking the others.
 
-A starter deck of ~35 basic words and phrases (greetings, politeness, common verbs, pronouns, question words)
-ships at `app/decks/basics.csv`, both as usable day-one content and as a worked example of the format for whoever
-writes the CSV-generation prompt.
+Decks mirror the user's course text, 新版實用視聽華語 (Practical Audio-Visual Chinese) vol. 1, one file per lesson —
+`app/decks/lesson01.csv` and so on. `app/decks/README.md` is the authoring guide and doubles as the worked example
+of the format.
 
 Notes for whoever writes the CSV-generation prompt:
 - `pinyin` uses real tone marks (`nǐ hǎo`, not `ni3hao3`). v1 is multiple-choice only, so the learner never types

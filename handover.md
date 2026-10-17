@@ -25,9 +25,13 @@ added, or how validation works, update `README.md` in the same commit — alongs
 - `README.md`, `SPEC.md` and `PLAN.md` are current and were updated alongside every behaviour change so far.
   Keep doing that.
 
-**Only content is missing.** The sole deck is `app/decks/basics.csv` (35 starter words). No real course material
-has been added yet, and doing one lesson end-to-end is the obvious next step — it tests the authoring guide, the
-AI prompt and CI against material nobody designed them around.
+**Content follows the textbook.** Decks mirror 新版實用視聽華語 (Practical Audio-Visual Chinese) vol. 1 — the
+standard book at Taiwanese university language centres, and the user's course text. `app/decks/lesson01.csv` is
+done (31 words); lessons 2-12 remain. An earlier invented `basics.csv` was retired when lesson 1 landed, because
+it collided with the book's vocabulary on 25 values and would have collided with every future lesson too.
+
+The book is a 332-page scanned PDF with no text layer, so pages must be rendered as images and read visually —
+`tools/pdf_slice.py` and PyMuPDF handle that; see "Adding a lesson" below.
 
 ## How to work on this
 
