@@ -704,40 +704,120 @@
     renderQuestion();
   });
 
-  // Each recording is a full dictionary entry read aloud; the syllable itself occupies the
-  // opening half-second. We stop playback there rather than shipping cut files — see
-  // audio/LICENSE.txt. The trailing silence doubles as the gap between syllables.
+  // Each recording is a full dictionary entry read aloud: a click, the syllable, silence, then
+  // the definition. We never cut the files (see audio/LICENSE.txt) — instead we decode them,
+  // locate the syllable, and play just that span with short fades. Starting or stopping
+  // playback mid-waveform produces an audible click, which is what fades are for, and
+  // scheduling through Web Audio lets syllables of one word run together without a seam.
   const player = (function () {
-    const SKIP_CLICK = 0.03;
-    const SLICE_MS = 620;
+    const ANALYSIS_LIMIT = 1.0;   // the syllable always lands well inside the first second
+    const CLICK_SKIP = 0.06;      // the recordings open with a sharp pop at ~48ms
+    const WINDOW = 0.01;
+    const REL_FLOOR = 0.10;       // share of this file's peak that counts as speech...
+    const ABS_FLOOR = 0.012;      // ...but never below this, or quiet files mistake hiss for speech
+    const ONSET_RUN = 4;          // windows that must stay loud, so the pop's tail isn't an onset
+    const SILENCE_RUN = 0.12;     // this much quiet means the syllable has ended
+    const MAX_SPAN = 0.9;
+    const FADE = 0.012;
+    const GAP = 0.04;             // between syllables of one word
+
+    let ctx = null;
+    const buffers = new Map();
+    const bounds = new Map();
     let generation = 0;
+
+    function context() {
+      if (!ctx) {
+        const Ctor = window.AudioContext || window.webkitAudioContext;
+        ctx = new Ctor();
+      }
+      if (ctx.state === "suspended") ctx.resume();
+      return ctx;
+    }
+
+    function loadBuffer(name) {
+      if (buffers.has(name)) return Promise.resolve(buffers.get(name));
+      return fetch("audio/" + name + ".mp3")
+        .then(res => res.arrayBuffer())
+        .then(data => new Promise((resolve, reject) =>
+          context().decodeAudioData(data, resolve, reject)))
+        .then(buffer => {
+          buffers.set(name, buffer);
+          return buffer;
+        });
+    }
+
+    // Where the opening syllable begins and ends, measured from the decoded samples.
+    function speechBounds(name, buffer) {
+      if (bounds.has(name)) return bounds.get(name);
+      const data = buffer.getChannelData(0);
+      const rate = buffer.sampleRate;
+      const limit = Math.min(data.length, Math.floor(rate * ANALYSIS_LIMIT));
+      const step = Math.floor(rate * WINDOW);
+      const from = Math.floor(rate * CLICK_SKIP);
+
+      const energies = [];
+      for (let i = from; i < limit; i += step) {
+        let sum = 0;
+        const stop = Math.min(i + step, limit);
+        for (let j = i; j < stop; j++) sum += data[j] * data[j];
+        energies.push(Math.sqrt(sum / (stop - i)));
+      }
+
+      const peak = energies.reduce((a, b) => Math.max(a, b), 0);
+      const floor = Math.max(peak * REL_FLOOR, ABS_FLOOR);
+      const runLength = Math.ceil(SILENCE_RUN / WINDOW);
+
+      // The syllable starts where loudness *stays* up: recordings vary from speaking
+      // immediately after the pop to a quarter-second of silence first.
+      let first = -1;
+      for (let i = 0; i + ONSET_RUN <= energies.length; i++) {
+        let sustained = true;
+        for (let k = 0; k < ONSET_RUN; k++) {
+          if (energies[i + k] < floor) { sustained = false; break; }
+        }
+        if (sustained) { first = i; break; }
+      }
+      if (first < 0) first = 0;
+
+      let last = first;
+      let quiet = 0;
+      for (let i = first; i < energies.length; i++) {
+        if (energies[i] >= floor) {
+          last = i;
+          quiet = 0;
+        } else if (++quiet >= runLength) {
+          break;
+        }
+      }
+
+      const start = CLICK_SKIP + Math.max(0, first - 1) * WINDOW;
+      const end = CLICK_SKIP + (last + 1) * WINDOW;
+      const result = { start, duration: Math.min(MAX_SPAN, Math.max(0.2, end - start)) };
+      bounds.set(name, result);
+      return result;
+    }
 
     function playSequence(files) {
       const mine = ++generation;
-      // Start every syllable downloading at once. Fetching each only when the previous one
-      // finished left an audible gap mid-word, since a cold file costs ~0.5s of latency.
-      const clips = files.map(name => {
-        const el = new Audio("audio/" + name + ".mp3");
-        el.preload = "auto";
-        el.load();
-        return el;
-      });
-      let index = 0;
-      (function playNext() {
-        if (mine !== generation || index >= clips.length) return;
-        const el = clips[index];
-        index++;
-        let timer = null;
-        el.addEventListener("loadedmetadata", () => {
-          if (el.currentTime < SKIP_CLICK) {
-            try { el.currentTime = SKIP_CLICK; } catch (e) { /* seeking unsupported */ }
-          }
-        }, { once: true });
-        el.addEventListener("ended", () => { clearTimeout(timer); playNext(); }, { once: true });
-        el.play().then(() => {
-          timer = setTimeout(() => { el.pause(); playNext(); }, SLICE_MS);
-        }).catch(() => { playNext(); });
-      })();
+      const audio = context();
+      Promise.all(files.map(loadBuffer)).then(loaded => {
+        if (mine !== generation) return;
+        let when = audio.currentTime + 0.04;
+        loaded.forEach((buffer, i) => {
+          const { start, duration } = speechBounds(files[i], buffer);
+          const source = audio.createBufferSource();
+          const gain = audio.createGain();
+          source.buffer = buffer;
+          source.connect(gain).connect(audio.destination);
+          gain.gain.setValueAtTime(0, when);
+          gain.gain.linearRampToValueAtTime(1, when + FADE);
+          gain.gain.setValueAtTime(1, when + duration - FADE);
+          gain.gain.linearRampToValueAtTime(0, when + duration);
+          source.start(when, start, duration);
+          when += duration + GAP;
+        });
+      }).catch(() => { /* a missing or undecodable file just stays silent */ });
     }
 
     return { playSequence, stop() { generation++; } };
