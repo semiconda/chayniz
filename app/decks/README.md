@@ -12,14 +12,29 @@ all decks drill together. That is why cross-deck duplicates matter.
 
 1. Extract the vocabulary from the lesson PDF (see **Working from a PDF** below).
 2. Write it to `app/decks/<lesson-name>.csv` in the format below.
-3. **Run the validator** — this is not optional, it catches the mistakes that are invisible
-   by eye:
+3. Add `"<lesson-name>.csv"` to `manifest.json`. A deck that isn't listed is never loaded.
+4. **Validate.** This is not optional — it catches mistakes that are invisible by eye:
    ```
    python tools/check_deck.py app/decks/<lesson-name>.csv
+   python tools/check_deck.py --all          # every deck + manifest consistency
    ```
    Fix every `ERROR`. Read every `WARN` and decide deliberately.
-4. Add `"<lesson-name>.csv"` to `manifest.json`.
 5. Commit both files. The site picks the lesson up on next load.
+
+### Adding a lesson from a phone
+
+You can do the whole thing without a computer: generate the CSV in any AI chat using the
+prompt at the bottom of this file, then create the file and edit `manifest.json` through
+github.com in a mobile browser.
+
+You can't run the validator that way — so **GitHub runs it for you** on every push
+(`.github/workflows/check-decks.yml`). After committing, open the commit on GitHub: a green
+tick means the deck is sound, a red cross means something is wrong, and tapping it shows
+exactly which row and why. Treat a red cross as "the lesson is broken", not as a formality.
+
+This matters most when an AI wrote the CSV. Models get tone marks, sandhi and traditional
+characters wrong routinely and with total confidence, and a wrong tone is worse than a missing
+word — the learner drills the error.
 
 ## Format
 

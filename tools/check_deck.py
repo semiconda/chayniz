@@ -1,10 +1,14 @@
 """Validate a lesson CSV before committing it.
 
     python tools/check_deck.py app/decks/lesson01.csv
+    python tools/check_deck.py --all          # every deck, plus manifest consistency
 
-Checks structure, tone marks, citation tones, duplicate values across every deck, audio
+Checks structure, tone marks, sandhi spellings, duplicate values across every deck, audio
 coverage, and whether the deck can produce fair multiple-choice options. Exits non-zero if
 anything is an ERROR; WARNINGs are judgement calls worth a look.
+
+This also runs automatically on GitHub for every push, so a deck committed from a phone still
+gets checked — see .github/workflows/check-decks.yml.
 """
 
 import csv
@@ -37,9 +41,12 @@ SANDHI_FORMS = {
 }
 
 problems = []
+current_file = None
 
 
 def report(level, message):
+    if current_file:
+        message = "%s: %s" % (current_file, message)
     problems.append((level, message))
 
 
@@ -90,15 +97,54 @@ def read_deck(path):
         return list(csv.DictReader(handle))
 
 
+def check_manifest():
+    """A deck that isn't listed is invisible to the app — an easy step to forget."""
+    global current_file
+    current_file = None
+    manifest = DECKS / "manifest.json"
+    if not manifest.exists():
+        report("ERROR", "app/decks/manifest.json is missing")
+        return []
+    try:
+        listed = json.loads(manifest.read_text(encoding="utf-8"))
+    except ValueError as err:
+        report("ERROR", "manifest.json is not valid JSON: %s" % err)
+        return []
+
+    present = sorted(p.name for p in DECKS.glob("*.csv"))
+    for name in listed:
+        if not (DECKS / name).exists():
+            report("ERROR", "manifest lists %s but that file does not exist" % name)
+    for name in present:
+        if name not in listed:
+            report("ERROR", "%s exists but is not in manifest.json, so the app never loads it"
+                   % name)
+    return [DECKS / name for name in listed if (DECKS / name).exists()]
+
+
 def main(argv):
+    global current_file
     if len(argv) != 2:
         print(__doc__)
         return 2
+
+    if argv[1] == "--all":
+        targets = check_manifest()
+        for target in targets:
+            current_file = target.name
+            check_one(target)
+        current_file = None
+        return finish()
+
     target = Path(argv[1])
     if not target.exists():
         print("No such file: %s" % target)
         return 2
+    check_one(target)
+    return finish()
 
+
+def check_one(target):
     rows = read_deck(target)
     if not rows:
         report("ERROR", "file has no data rows")
@@ -106,7 +152,7 @@ def main(argv):
     missing_cols = [c for c in REQUIRED if rows and c not in rows[0]]
     if missing_cols:
         report("ERROR", "missing required column(s): %s" % ", ".join(missing_cols))
-        return finish()
+        return
 
     toned, bases = load_audio()
     if not toned:
@@ -180,8 +226,6 @@ def main(argv):
         if len(seen_in_file[col]) < 5:
             report("ERROR", "only %d distinct %s values — the app needs 5+ to build four "
                             "options with a varying wrong set" % (len(seen_in_file[col]), col))
-
-    return finish()
 
 
 def check_against_other_decks(target, seen_in_file):
