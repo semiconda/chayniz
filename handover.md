@@ -1,8 +1,12 @@
 # Handover — Chayniz
 
-Read this first, then `SPEC.md` (what the app does and why) and `PLAN.md` (how it's built). Those three files are
-the only source of truth for this project — no private/assistant memory is used here, deliberately, so that any
-fresh session or device can pick up from the repo alone.
+Read this first, then `README.md` (what the project is and how to use it), `SPEC.md` (what the app does and why)
+and `PLAN.md` (how it's built). Those files are the only source of truth for this project — no private/assistant
+memory is used here, deliberately, so that any fresh session or device can pick up from the repo alone.
+
+**Keep `README.md` current.** It is the entry point for the user and for anyone finding the repo, and the user
+asked for it to be updated in parallel with the code. Whenever a change alters what the app does, how lessons are
+added, or how validation works, update `README.md` in the same commit — alongside `SPEC.md`/`PLAN.md`.
 
 ## Current state (2026-10-17)
 

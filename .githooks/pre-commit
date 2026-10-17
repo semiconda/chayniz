@@ -1,0 +1,32 @@
+#!/bin/sh
+# Refuse to commit a lesson deck that fails validation.
+#
+# Enable once per clone:   git config core.hooksPath .githooks
+# Bypass deliberately:     git commit --no-verify
+#
+# This only covers commits made on your machine. Commits made through the GitHub web editor
+# never run it, which is why .github/workflows/check-decks.yml checks pushes as well.
+
+if ! git diff --cached --name-only | grep -q '^app/decks/'; then
+    exit 0
+fi
+
+for candidate in python3 python py; do
+    if command -v "$candidate" >/dev/null 2>&1; then
+        PY="$candidate"
+        break
+    fi
+done
+
+if [ -z "$PY" ]; then
+    echo "pre-commit: no python found, skipping deck validation." >&2
+    exit 0
+fi
+
+echo "Validating lesson decks..."
+if ! "$PY" tools/check_deck.py --all; then
+    echo >&2
+    echo "Commit refused: the deck above has errors." >&2
+    echo "Fix them, or run 'git commit --no-verify' if you mean to commit anyway." >&2
+    exit 1
+fi
