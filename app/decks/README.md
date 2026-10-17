@@ -128,6 +128,8 @@ too), continue through SUPPLEMENTARY VOCABULARY, and stop where SYNTAX PRACTICE 
 |---|---|---|
 | 1 | 6-10 | 46-50 |
 | 2 | 24-28 | 64-68 |
+| 3 | 38-42 | 78-82 |
+| 4 | 58-63 | 98-103 |
 
 Three traps specific to this book:
 
@@ -144,7 +146,20 @@ Three traps specific to this book:
   it costs less than keeping it. Revisit if enough four-character words accumulate to form a crowd.
 - **A later lesson often re-glosses a word from an earlier one.** Lesson 2 lists 好 again as "very"
   where lesson 1 has it as "good"; the hanzi column must stay unique across decks, so the second
-  reading is dropped rather than duplicated.
+  reading is dropped rather than duplicated. Lessons also simply repeat words — 中國 is taught again
+  in lesson 3 — and the repeat belongs to whichever lesson had it first.
+- **A later lesson can collide with an earlier one on pinyin alone.** Lesson 4's 九 `jiǔ` has the same
+  reading as lesson 2's 久 `jiǔ`, which makes pinyin → character unanswerable. The fix is to decide
+  which word matters and edit the *older* deck — here 久 was dropped, since it only entered lesson 2
+  as a sub-entry of 好久不見, which is itself absent. Expect to revisit finished decks as you go.
+- **Measure words need glosses that stay apart.** Lesson 4 alone teaches seven (枝, 種, 塊, 個, 杯, 位,
+  本). "measure word" for all of them gives seven identical options; `measure word: books`,
+  `measure word: cups` and so on keep them distinct and actually teach what each one counts.
+- **Number tables are not vocabulary.** Lesson 4 prints 十一 through 五十; they are composed from
+  digits already in the deck, so adding them teaches nothing and floods the two-character group.
+- **Bound forms without a real gloss are skipped.** Lesson 3's 法 is "the transliteration of the F in
+  France" — nothing a learner can recognise as an answer. 們 (lesson 2, "plural suffix") is the kind
+  of bound form worth keeping; 法 is not.
 
 Things that reliably go wrong with any source:
 

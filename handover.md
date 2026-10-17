@@ -28,8 +28,11 @@ added, or how validation works, update `README.md` in the same commit — alongs
   Keep doing that.
 
 **Content follows the textbook.** Decks mirror 新版實用視聽華語 (Practical Audio-Visual Chinese) vol. 1 — the
-standard book at Taiwanese university language centres, and the user's course text. `app/decks/lesson01.csv` (31 words) and
-`lesson02.csv` (24 words) are done; lessons 3-12 remain. The page-range table is in `app/decks/README.md`. An earlier invented `basics.csv` was retired when lesson 1 landed, because
+standard book at Taiwanese university language centres, and the user's course text. Lessons 1-4 are done (`lesson01.csv` 31 words, `lesson02.csv` 23,
+`lesson03.csv` 29, `lesson04.csv` 33); lessons 5-12 remain. The page-range table is in `app/decks/README.md`.
+
+The user's chosen rhythm: **one or two lessons at a time, staying a little ahead of their class**, so that the
+format keeps getting corrected by real study rather than by guesswork. Don't batch the remainder unasked. An earlier invented `basics.csv` was retired when lesson 1 landed, because
 it collided with the book's vocabulary on 25 values and would have collided with every future lesson too.
 
 The book is a 332-page scanned PDF with no text layer, so pages must be rendered as images and read visually —
@@ -119,6 +122,8 @@ Learning Taiwanese Mandarin from zero. The app is for:
   deselecting eleven. An "all / none" control, or selecting a range, will be wanted before volume 1 is finished.
 - **好久不見 is deliberately absent** from lesson 2: the only four-character word in the corpus, so its questions
   were answerable by shape alone. Add it back once four-character words form a crowd.
+- **Does the NTU course actually follow the book's order?** Decks mirror the textbook; if the course skips or
+  reorders chapters, that's the wrong target. Raised with the user, not yet answered.
 - **`hanzi` is currently required** in every row. Making it optional would allow pinyin-only decks (sound and
   meaning first, characters later). Raised, not yet decided.
 - **Distractors aren't targeted at pinyin traps** (yu/you, iu/iou, ui/uei). They now match the answer's *length*,
