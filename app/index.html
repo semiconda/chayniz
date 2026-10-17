@@ -732,6 +732,13 @@
       if (!ctx) {
         const Ctor = window.AudioContext || window.webkitAudioContext;
         if (!Ctor) return null;
+        // iOS routes Web Audio through the "ambient" session, which the ring/silent switch
+        // mutes — on the speaker only, so headphones still work and it looks like a bug.
+        // Claiming a playback session opts out of that. Must happen before the context
+        // exists, and needs iOS 17+; older versions keep obeying the switch.
+        try {
+          if (navigator.audioSession) navigator.audioSession.type = "playback";
+        } catch (err) { /* not supported here */ }
         ctx = new Ctor();
       }
       return ctx;
