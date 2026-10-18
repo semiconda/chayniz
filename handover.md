@@ -132,8 +132,14 @@ Learning Taiwanese Mandarin from zero. The app is for:
 
 ## Open items
 
-- **Lessons 3-12.** Lessons 1 and 2 were done by hand to validate the guide; from here parallel subagents are
-  the agreed approach, one lesson each, following `app/decks/README.md`.
+- **Lessons 5-12.** Lessons 1-4 are done. One or two at a time, following `app/decks/README.md`; see the rhythm
+  note above. Needs the textbook PDF, which is gitignored and may not be on the machine you're working from.
+- **The 16 missing syllables stay missing — decided, don't re-propose.** Asked on 2026-10-18 whether to mine
+  MOE's 15 GB word-level package to recover `wo3` (我), `che1` (車), `men5` (們) and the rest, the user said no.
+  Those words stay reading-only. Note the gap has two distinct causes and that package would only fix the first:
+  citation syllables MOE never recorded (`wo3`, `che1`, `men5`), and neutral-tone syllables that are not
+  dictionary headwords at all (`xie5` in 謝謝, `tai5` in 太太, `ge5` in 個) — the corpus holds only 17 neutral-tone
+  syllables in total, and no package will change that.
 - **Lesson chips still won't scale past ~8 lessons.** A Clear/All control now exists, which takes the sting out
   of drilling one lesson, but the chips themselves still wrap into an increasingly tall block. Selecting a range,
   or collapsing the row, will be wanted before volume 1 is finished.
@@ -150,13 +156,15 @@ Learning Taiwanese Mandarin from zero. The app is for:
 - **Nothing blocks a bad deck committed from the GitHub web editor.** Hooks can't run there and CI is after the
   fact. Real blocking would mean protecting `main` and using pull requests, which adds taps to a deliberately
   fast phone workflow. Left as-is on purpose.
-- **1.5 GB `tools/_moe_audio.zip`** may still sit in the working copy (gitignored). Safe to delete;
-  `tools/fetch_audio.py` re-downloads it.
+- **1.5 GB `tools/_moe_audio.zip` is present** in the working copy (gitignored), as of 2026-10-18. Safe to
+  delete; `tools/fetch_audio.py` re-downloads it.
 
 ## Testing the app for real
 
-There is no test framework and the app is a static page, but it *can* be driven end to end, and that caught
-several things faster than reading could:
+There is no test framework and the app is a static page, but it *can* be driven end to end. Be clear-eyed about
+what that bought: when practice mode was built this way, 58 assertions found **zero** bugs in the app and
+produced six false alarms, all of them mistakes in the test code. The assertions gave confidence, not discovery.
+What actually found problems was looking at screenshots. Set up accordingly:
 
 ```bash
 cd app && python -m http.server 8731 &      # the page needs http(s); fetch is blocked from file://
@@ -171,13 +179,19 @@ PYTHONPATH=/some/scratch/sel PYTHONIOENCODING=utf-8 python your_script.py
 ```
 
 Headless Chrome at `--window-size=390,844` is a fair phone proxy, and `save_screenshot` is worth using — the
-first-lesson heading being glued to the status line was invisible in the DOM and obvious in a screenshot.
-Audio can't be verified this way; that still needs a real device.
+first-lesson heading being glued to the status line, and a chips label that read ambiguously, were both invisible
+in the DOM and obvious in a screenshot. Audio can't be verified this way; that still needs a real device.
+
+**The scripts are deliberately not committed.** They were written, used, and dropped. They assert exact counts
+(118 words, 10 silent rows, 4 lesson headings), so adding a lesson — the main ongoing activity here — breaks them
+on purpose-built work, and a later session would waste time repairing a test that never caught anything. They
+also can't run where lessons are actually committed from, a phone browser; `check_deck.py` in CI is the layer
+that covers that. Write them fresh if you want them; don't go looking for them in `tools/`.
 
 ## A shell trap that cost real time
 
 Writing edit scripts as bash heredocs **silently halves backslashes**. A Python `"\u0000"` arrived as
-`" "`, which Python then turned into a literal NUL byte inside `app/index.html` — valid-looking, invisible,
+`"\u0000"`, which Python then turned into a literal NUL byte inside `app/index.html` — valid-looking, invisible,
 and it made ripgrep treat the file as binary. If you edit this file from a script, either use the editor tools
 directly or write literal characters instead of escapes, and grep the result for control characters afterwards.
 The file legitimately contains U+0001 as a dedupe separator and nothing else below U+0020 but newlines.
