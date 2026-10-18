@@ -14,6 +14,15 @@ almost everyone mispronounces as English "you".
 
 Open the link. Lessons load automatically — there is nothing to install, sign into, or upload.
 
+**Two modes**, picked by the switch at the top:
+
+| Mode | What it does |
+|---|---|
+| **Test** *(default)* | the quiz — multiple-choice questions on the lessons you picked |
+| **Practice** | the same words as a vocabulary table to read through, each row tappable to hear it |
+
+Pick one or more **lessons**. **Clear** / **All** beside the chips selects or deselects every lesson at once.
+
 **Four toggles** choose what a session drills:
 
 | Toggle | Effect |
@@ -28,10 +37,25 @@ character↔pinyin, because reading a character aloud is a character skill. Turn
 alone gives only pinyin↔english. Listening always runs *from* Chinese outward — English is
 never the prompt, since English isn't what you're learning.
 
-Pick one or more **lessons** above the practice toggles. Several selected means questions *and*
-wrong options are mixed across all of them.
+Several lessons selected means questions *and* wrong options are mixed across all of them.
 
 Tap an answer for immediate feedback, then **Next**. There's no session length: stop whenever.
+**Back** returns to the start screen.
+
+### Practice
+
+Practice is the page to open when a word won't stick and you don't want to go hunting through the
+book for it. It lists the lessons you selected as one table — play button, character, pinyin,
+english — grouped under a heading per lesson and kept in textbook order, so a word stays where
+you last saw it.
+
+- **Tap anywhere on a row** to hear it, not just the speaker button.
+- The **Pinyin** and **Characters** toggles choose which columns appear. Reading/Hearing don't
+  apply here and are hidden.
+- **A dimmed muted speaker** means that word has no recording — 16 syllables were never recorded,
+  so a few words are reading-only.
+- **The filter box** narrows by character, pinyin or english, and ignores tone marks: typing
+  `hao` finds `hǎo`.
 
 **Nothing is saved.** Closing the tab loses your session, and that's deliberate — see
 [Why there's no progress tracking](#why-theres-no-progress-tracking).
@@ -134,6 +158,8 @@ A single static page. No backend, no build step, no dependencies, no framework. 
   distractors would be solvable without knowing any Chinese.
 - **Audio** plays one recording per syllable from `app/audio/`, a bounded set covering every
   toned Mandarin syllable — so no future lesson can need a file that isn't already there.
+- **Practice and test share everything but the screen.** Same lessons, same merge, same audio
+  path; practice simply skips question generation entirely.
 
 Opening `app/index.html` directly from disk works for reading questions, but browsers block
 `fetch` from `file://`, so bundled lessons and audio need the page served. Use the live site,

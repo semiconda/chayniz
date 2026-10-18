@@ -11,7 +11,12 @@ added, or how validation works, update `README.md` in the same commit — alongs
 ## Current state (2026-10-18)
 
 - **Live, tested on a phone including audio:** https://semiconda.github.io/chayniz/app/
-- **`app/index.html` is the whole app**: one file, no build step, no backend, no dependencies.
+- **`app/index.html` is the whole app**: one file, no build step, no backend, no dependencies. Three screens:
+  load, quiz, practice.
+- **Two modes, chosen on the start screen.** **Test** (default) is the quiz. **Practice** lists the selected
+  lessons as a vocabulary table — play button, character, pinyin, english — grouped by lesson, in textbook order,
+  with a tone-insensitive filter box. Both read the same lesson selection. Practice touches none of the question
+  machinery.
 - **Lessons ship with the site.** CSVs in `app/decks/`, listed in `app/decks/manifest.json`, fetched on page
   load. The start screen shows a chip per deck (all on by default) and merges the selected ones; because wrong
   options are sampled from the same merged pool, selecting several lessons mixes their vocabulary into each
@@ -28,8 +33,8 @@ added, or how validation works, update `README.md` in the same commit — alongs
   Keep doing that.
 
 **Content follows the textbook.** Decks mirror 新版實用視聽華語 (Practical Audio-Visual Chinese) vol. 1 — the
-standard book at Taiwanese university language centres, and the user's course text. Lessons 1-4 are done (`lesson01.csv` 31 words, `lesson02.csv` 23,
-`lesson03.csv` 29, `lesson04.csv` 33); lessons 5-12 remain. The page-range table is in `app/decks/README.md`.
+standard book at Taiwanese university language centres, and the user's course text. Lessons 1-4 are done (`lesson01.csv` 32 words, `lesson02.csv` 24,
+`lesson03.csv` 29, `lesson04.csv` 33 — 118 in total, 108 of them with audio); lessons 5-12 remain. The page-range table is in `app/decks/README.md`.
 
 The user's chosen rhythm: **one or two lessons at a time, staying a little ahead of their class**, so that the
 format keeps getting corrected by real study rather than by guesswork. Don't batch the remainder unasked. An earlier invented `basics.csv` was retired when lesson 1 landed, because
@@ -39,6 +44,12 @@ The book is a 332-page scanned PDF with no text layer, so pages must be rendered
 `tools/pdf_slice.py` and PyMuPDF handle that; see "Adding a lesson" below.
 
 ## How to work on this
+
+**Push changes; don't park them.** The user's instruction, 2026-10-18: *"just push when you make changes."*
+Commit finished work to `main` and push it — don't leave it sitting in the working tree waiting for approval.
+The live site is the thing the user actually looks at, and an uncommitted change looks identical to no change at
+all. Docs go in the same commit as the behaviour they describe (see above). `main` is committed to directly and
+on purpose; see the last open item for why there are no pull requests here.
 
 Writing code is fine now. (An earlier version of this file said "do not write any code" — that applied only to the
 spec-writing phase, which is finished. Don't re-apply it.)
@@ -123,8 +134,9 @@ Learning Taiwanese Mandarin from zero. The app is for:
 
 - **Lessons 3-12.** Lessons 1 and 2 were done by hand to validate the guide; from here parallel subagents are
   the agreed approach, one lesson each, following `app/decks/README.md`.
-- **Lesson chips don't scale past ~8 lessons.** They wrap and stay tappable, but drilling one lesson means
-  deselecting eleven. An "all / none" control, or selecting a range, will be wanted before volume 1 is finished.
+- **Lesson chips still won't scale past ~8 lessons.** A Clear/All control now exists, which takes the sting out
+  of drilling one lesson, but the chips themselves still wrap into an increasingly tall block. Selecting a range,
+  or collapsing the row, will be wanted before volume 1 is finished.
 - **好久不見 is deliberately absent** from lesson 2: the only four-character word in the corpus, so its questions
   were answerable by shape alone. Add it back once four-character words form a crowd.
 - **Does the NTU course actually follow the book's order?** Decks mirror the textbook; if the course skips or
@@ -140,6 +152,35 @@ Learning Taiwanese Mandarin from zero. The app is for:
   fast phone workflow. Left as-is on purpose.
 - **1.5 GB `tools/_moe_audio.zip`** may still sit in the working copy (gitignored). Safe to delete;
   `tools/fetch_audio.py` re-downloads it.
+
+## Testing the app for real
+
+There is no test framework and the app is a static page, but it *can* be driven end to end, and that caught
+several things faster than reading could:
+
+```bash
+cd app && python -m http.server 8731 &      # the page needs http(s); fetch is blocked from file://
+```
+
+Then drive it with Selenium. The system Python's selenium (4.1.2) is too old to fetch its own chromedriver —
+install a newer one into a scratch directory rather than changing the user's environment:
+
+```bash
+PIP_USER=0 python -m pip install --no-user --target /some/scratch/sel "selenium>=4.21"
+PYTHONPATH=/some/scratch/sel PYTHONIOENCODING=utf-8 python your_script.py
+```
+
+Headless Chrome at `--window-size=390,844` is a fair phone proxy, and `save_screenshot` is worth using — the
+first-lesson heading being glued to the status line was invisible in the DOM and obvious in a screenshot.
+Audio can't be verified this way; that still needs a real device.
+
+## A shell trap that cost real time
+
+Writing edit scripts as bash heredocs **silently halves backslashes**. A Python `"\u0000"` arrived as
+`" "`, which Python then turned into a literal NUL byte inside `app/index.html` — valid-looking, invisible,
+and it made ripgrep treat the file as binary. If you edit this file from a script, either use the editor tools
+directly or write literal characters instead of escapes, and grep the result for control characters afterwards.
+The file legitimately contains U+0001 as a dedupe separator and nothing else below U+0020 but newlines.
 
 ## Name
 

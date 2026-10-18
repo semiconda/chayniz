@@ -218,6 +218,101 @@
     font-size: 0.75rem;
     padding: 12px;
   }
+  /* The vocabulary table is a long scrolling list, so the centred single-card layout
+     that suits the quiz would push its top off screen. */
+  .card.wide { max-width: 620px; }
+  body.listing main { justify-content: flex-start; }
+  .screen-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .back-btn {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    font-size: 0.9rem;
+  }
+  .back-btn:active { background: #232b38; }
+  .screen-title {
+    color: var(--muted);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .label-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .link-btn {
+    background: transparent;
+    color: var(--accent);
+    border: none;
+    padding: 0 2px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .filter-input {
+    width: 100%;
+    padding: 12px 14px;
+    background: #232b38;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    font: inherit;
+    margin-bottom: 10px;
+  }
+  .filter-input::placeholder { color: var(--muted); }
+  table.vocab {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 14px;
+  }
+  .vocab th.group {
+    text-align: left;
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 20px 0 6px;
+  }
+  .vocab tr:first-child th.group { padding-top: 0; }
+  .vocab td {
+    padding: 11px 6px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .vocab td.speak-cell {
+    width: 1%;
+    padding-left: 0;
+    padding-right: 10px;
+  }
+  .vocab td.hanzi { font-size: 1.35rem; white-space: nowrap; }
+  .vocab td.pinyin { white-space: nowrap; }
+  .vocab td.meaning { color: var(--muted); font-size: 0.95rem; }
+  .speak {
+    background: #232b38;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 7px 9px;
+    font-size: 1rem;
+    line-height: 1;
+  }
+  .speak:active { background: #2c3647; }
+  /* 16 syllables were never recorded by the MOE, so some words are reading-only. A dimmed
+     muted-speaker glyph says which, and keeps the column aligned. */
+  .speak.silent {
+    opacity: 0.3;
+    cursor: default;
+  }
+  tr.playable { cursor: pointer; }
+  tr.playable:active td { background: #222a36; }
   .hidden { display: none !important; }
 </style>
 </head>
@@ -229,16 +324,29 @@
     <div class="file-row">
       <div id="load-status" class="status">Loading lessons…</div>
 
+      <div class="toggle-group">
+        <div class="toggle-label">Mode</div>
+        <div class="toggle-row">
+          <button type="button" class="toggle" data-mode="practice">Practice</button>
+          <button type="button" class="toggle on" data-mode="test">Test</button>
+        </div>
+      </div>
+
       <div class="toggle-group hidden" id="lesson-group">
-        <div class="toggle-label">Lessons</div>
+        <div class="toggle-label label-row">
+          <span>Lessons</span>
+          <button type="button" class="link-btn" id="lesson-all-btn">Clear</button>
+        </div>
         <div class="toggle-row" id="lesson-row"></div>
       </div>
 
       <div class="toggle-group">
-        <div class="toggle-label">How to practise</div>
-        <div class="toggle-row">
-          <button type="button" class="toggle on" data-toggle="reading">Reading</button>
-          <button type="button" class="toggle on" data-toggle="hearing">Hearing</button>
+        <div id="how-block">
+          <div class="toggle-label">How to practise</div>
+          <div class="toggle-row">
+            <button type="button" class="toggle on" data-toggle="reading">Reading</button>
+            <button type="button" class="toggle on" data-toggle="hearing">Hearing</button>
+          </div>
         </div>
         <div class="toggle-label">What to practise</div>
         <div class="toggle-row">
@@ -259,6 +367,10 @@
   </section>
 
   <section id="quiz-screen" class="card hidden">
+    <div class="screen-head">
+      <button id="quiz-back" type="button" class="back-btn">‹ Back</button>
+      <span class="screen-title">Test</span>
+    </div>
     <div class="prompt-label" id="prompt-label"></div>
     <div class="prompt-value" id="prompt-value"></div>
     <button id="replay-btn" type="button" class="replay-btn hidden">Play again</button>
@@ -266,6 +378,17 @@
     <div class="next-row">
       <button id="next-btn" class="primary-btn hidden">Next</button>
     </div>
+  </section>
+
+  <section id="practice-screen" class="card wide hidden">
+    <div class="screen-head">
+      <button id="practice-back" type="button" class="back-btn">‹ Back</button>
+      <span class="screen-title">Practice</span>
+    </div>
+    <input id="practice-filter" class="filter-input" type="search"
+           placeholder="Filter by character, pinyin or english" autocomplete="off">
+    <div id="practice-status" class="status"></div>
+    <div id="vocab-list"></div>
   </section>
 </main>
 <footer>No progress is saved. Reloading starts a fresh session.</footer>
@@ -579,6 +702,15 @@
   const toggleNote = document.getElementById("toggle-note");
   const lessonGroup = document.getElementById("lesson-group");
   const lessonRow = document.getElementById("lesson-row");
+  const lessonAllBtn = document.getElementById("lesson-all-btn");
+  const modeButtons = Array.from(document.querySelectorAll(".toggle[data-mode]"));
+  const howBlock = document.getElementById("how-block");
+  const practiceScreen = document.getElementById("practice-screen");
+  const practiceBack = document.getElementById("practice-back");
+  const quizBack = document.getElementById("quiz-back");
+  const practiceFilter = document.getElementById("practice-filter");
+  const practiceStatus = document.getElementById("practice-status");
+  const vocabList = document.getElementById("vocab-list");
   const replayBtn = document.getElementById("replay-btn");
   const promptLabelEl = document.getElementById("prompt-label");
   const promptValueEl = document.getElementById("prompt-value");
@@ -590,22 +722,44 @@
   let bundledDecks = [];              // every lesson the manifest lists, parsed once on load
   const selectedDecks = new Set();    // filenames of the lessons currently being drilled
 
+  // TEST drills the selected words as multiple-choice questions; PRACTICE shows them as a
+  // vocabulary table to read through, so a lesson can be studied without the book. Both run
+  // off the same deck selection, and PRACTICE reuses the Pinyin/Characters toggles to choose
+  // its columns. Test is the default, because drilling is what the app is for.
+  let mode = "test";
+
+  // The table is grouped by lesson, so practice keeps the decks apart where the quiz merges
+  // them. Deduplication still matches the quiz pool: a word kept by the lesson that had it first.
+  let practiceGroups = [];
+
+  // Everything useItems() was last given, so switching mode can re-evaluate the same load
+  // (what counts as an error differs between the two modes).
+  let lastLoad = null;
+
   function setStatus(text, isError) {
     loadStatus.textContent = text;
     loadStatus.classList.toggle("error", Boolean(isError));
   }
 
-  function useItems(items, skipped, sourceLabel) {
+  function useItems(items, skipped, sourceLabel, groups) {
+    lastLoad = { items, skipped, sourceLabel, groups };
     startBtn.disabled = true;
+    quiz = null;
+    practiceGroups = groups || [{ title: "Vocabulary", items }];
     if (items.length === 0) {
+      practiceGroups = [];
       setStatus("No usable rows found (need hanzi, pinyin and meaning columns).", true);
       return;
     }
     const candidate = createQuizState(items, audioIndex);
     if (candidate.validDirections.length === 0) {
+      // Too thin to build questions from. That stops the quiz but not the table, so it is
+      // only an error in test mode.
       setStatus(
         "Loaded " + items.length + " word(s), but no column has " + MIN_DISTINCT +
-        "+ distinct values, so no question can be generated. Add more varied rows.", true);
+        "+ distinct values, so no question can be generated. Add more varied rows.",
+        mode === "test");
+      refreshToggles();
       return;
     }
     quiz = candidate;
@@ -664,8 +818,12 @@
       btn.setAttribute("aria-pressed", String(on));
     });
 
+    lessonAllBtn.textContent = chosen.length === bundledDecks.length ? "Clear" : "All";
+
     if (chosen.length === 0) {
       quiz = null;
+      practiceGroups = [];
+      lastLoad = null;
       startBtn.disabled = true;
       toggleNote.textContent = "";
       setStatus("Pick at least one lesson.", true);
@@ -675,11 +833,25 @@
     const label = chosen.length === bundledDecks.length && chosen.length > 1
       ? "from all " + chosen.length + " lessons"
       : "from " + chosen.map(d => d.title).join(", ");
+    // Dedupe across lessons exactly as the quiz pool does, keeping the earliest lesson's copy,
+    // so the table never shows the same word twice.
+    const seen = new Set();
+    const groups = chosen.map(d => ({
+      title: d.title,
+      items: d.items.filter(it => {
+        const key = it.hanzi + "" + it.pinyin + "" + it.meaning;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }),
+    }));
+
     quiz = null;   // if useItems rejects this selection it must not leave the previous one armed
     useItems(
       mergeItems(chosen.map(d => d.items)),
       chosen.reduce((n, d) => n + d.skipped, 0),
-      label);
+      label,
+      groups);
   }
 
   function renderLessonChips() {
@@ -714,7 +886,7 @@
     reader.onload = () => {
       const { items, skipped } = rowsToItems(parseCSV(String(reader.result)));
       lessonGroup.classList.add("hidden");   // the chips describe the bundled lessons, not this file
-      useItems(items, skipped, "from " + file.name);
+      useItems(items, skipped, "from " + file.name, [{ title: file.name, items }]);
     };
     reader.onerror = () => setStatus("Could not read that file.", true);
     reader.readAsText(file);
@@ -724,12 +896,33 @@
     const hearingPossible = audioIndex.size > 0;
     if (!hearingPossible) toggles.hearing = false;
 
+    modeButtons.forEach(btn => {
+      const on = btn.dataset.mode === mode;
+      btn.classList.toggle("on", on);
+      btn.setAttribute("aria-pressed", String(on));
+    });
+    // Practice draws no reading/hearing distinction — every row is readable and carries its
+    // own play button — so the toggles that would claim otherwise come off screen entirely.
+    howBlock.classList.toggle("hidden", mode === "practice");
+    startBtn.textContent = mode === "practice" ? "Show vocabulary" : "Start";
+
     toggleButtons.forEach(btn => {
       const name = btn.dataset.toggle;
       btn.classList.toggle("on", toggles[name]);
       btn.disabled = name === "hearing" && !hearingPossible;
       btn.setAttribute("aria-pressed", String(Boolean(toggles[name])));
     });
+
+    if (mode === "practice") {
+      const total = practiceGroups.reduce((n, g) => n + g.items.length, 0);
+      const pickedScript = toggles.pinyin || toggles.characters;
+      toggleNote.textContent = !total ? ""
+        : !pickedScript ? "Pick pinyin, characters, or both."
+        : total + " word" + (total === 1 ? "" : "s") + " to read through";
+      toggleNote.classList.toggle("error", Boolean(total) && !pickedScript);
+      startBtn.disabled = !total || !pickedScript;
+      return;
+    }
 
     if (!quiz) return;
 
@@ -755,6 +948,23 @@
       toggles[name] = !toggles[name];
       refreshToggles();
     });
+  });
+
+  modeButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (mode === btn.dataset.mode) return;
+      mode = btn.dataset.mode;
+      // Re-run the last load rather than just repainting: a deck too thin for questions is an
+      // error in test mode and perfectly fine in practice, so the status line has to be redone.
+      if (lastLoad) useItems(lastLoad.items, lastLoad.skipped, lastLoad.sourceLabel, lastLoad.groups);
+      else refreshToggles();
+    });
+  });
+
+  lessonAllBtn.addEventListener("click", () => {
+    if (selectedDecks.size === bundledDecks.length) selectedDecks.clear();
+    else bundledDecks.forEach(d => selectedDecks.add(d.name));
+    applyDeckSelection();
   });
 
   replayBtn.addEventListener("click", playCurrent);
@@ -789,12 +999,37 @@
     }
   })();
 
+  function showLoadScreen() {
+    player.stop();
+    quizScreen.classList.add("hidden");
+    practiceScreen.classList.add("hidden");
+    loadScreen.classList.remove("hidden");
+    document.body.classList.remove("listing");
+    window.scrollTo(0, 0);
+  }
+
   startBtn.addEventListener("click", () => {
-    if (!quiz) return;
+    // Guard before hiding the load screen: a click that fell through afterwards would leave
+    // nothing on screen at all. The button is disabled in both cases, but not visibly so.
+    const ready = mode === "practice"
+      ? practiceGroups.some(g => g.items.length > 0)
+      : Boolean(quiz);
+    if (!ready) return;
+
     loadScreen.classList.add("hidden");
+    if (mode === "practice") {
+      practiceScreen.classList.remove("hidden");
+      document.body.classList.add("listing");
+      renderPractice();
+      return;
+    }
     quizScreen.classList.remove("hidden");
     renderQuestion();
   });
+
+  quizBack.addEventListener("click", showLoadScreen);
+  practiceBack.addEventListener("click", showLoadScreen);
+  practiceFilter.addEventListener("input", applyFilter);
 
   nextBtn.addEventListener("click", () => {
     renderQuestion();
@@ -952,6 +1187,132 @@
 
     return { playSequence, unlock, stop() { generation++; } };
   })();
+
+  // ---------- Practice: the selected lessons as a vocabulary table ----------
+  // The rendered rows, grouped as they appear on screen, so filtering can hide a lesson's
+  // heading once none of its words match.
+  let practiceDom = [];
+
+  // Matching ignores tone marks, so typing "hao" finds "hǎo" — nobody types the marks.
+  function foldForSearch(text) {
+    let out = "";
+    for (const ch of text.normalize("NFD")) {
+      const code = ch.codePointAt(0);
+      if (code >= 0x0300 && code <= 0x036f) continue;   // the combining tone marks
+      out += ch;
+    }
+    return out.toLowerCase();
+  }
+
+  function vocabCell(className, text) {
+    const td = document.createElement("td");
+    td.className = className;
+    td.textContent = text;
+    return td;
+  }
+
+  function renderPractice() {
+    const showHanzi = toggles.characters;
+    const showPinyin = toggles.pinyin;
+    const columns = 2 + (showHanzi ? 1 : 0) + (showPinyin ? 1 : 0);
+
+    practiceDom = [];
+    vocabList.textContent = "";
+    const table = document.createElement("table");
+    table.className = "vocab";
+
+    for (const group of practiceGroups) {
+      if (group.items.length === 0) continue;
+      const headRow = document.createElement("tr");
+      const th = document.createElement("th");
+      th.className = "group";
+      th.colSpan = columns;
+      th.textContent = group.title;
+      headRow.appendChild(th);
+      table.appendChild(headRow);
+
+      const rows = [];
+      for (const item of group.items) {
+        const tr = document.createElement("tr");
+        const files = audioIndex.size ? segmentPinyin(item.pinyin, audioIndex) : null;
+
+        const speakCell = document.createElement("td");
+        speakCell.className = "speak-cell";
+        if (files) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "speak";
+          btn.textContent = "🔊";
+          btn.setAttribute("aria-label", "Play " + item.hanzi);
+          speakCell.appendChild(btn);
+          // The whole row plays, not only the button — a far bigger target for a thumb. The
+          // button carries no handler of its own; the click simply bubbles up to here.
+          tr.className = "playable";
+          tr.addEventListener("click", () => playWord(files));
+        } else {
+          // 16 syllables were never recorded, so some words are reading-only. Show which,
+          // rather than a button that silently does nothing.
+          const silent = document.createElement("span");
+          silent.className = "speak silent";
+          silent.textContent = "🔇";
+          silent.title = "No recording for this word";
+          speakCell.appendChild(silent);
+        }
+        tr.appendChild(speakCell);
+        if (showHanzi) tr.appendChild(vocabCell("hanzi", item.hanzi));
+        if (showPinyin) tr.appendChild(vocabCell("pinyin", item.pinyin));
+        tr.appendChild(vocabCell("meaning", item.meaning));
+        table.appendChild(tr);
+        rows.push({
+          tr,
+          haystack: foldForSearch(item.hanzi + " " + item.pinyin + " " + item.meaning),
+          hasAudio: Boolean(files),
+        });
+      }
+      practiceDom.push({ headRow, rows });
+    }
+
+    vocabList.appendChild(table);
+    applyFilter();
+  }
+
+  function applyFilter() {
+    const query = foldForSearch(practiceFilter.value.trim());
+    let shown = 0;
+    let total = 0;
+    let withAudio = 0;
+
+    for (const group of practiceDom) {
+      let anyVisible = false;
+      for (const row of group.rows) {
+        const visible = query === "" || row.haystack.indexOf(query) >= 0;
+        row.tr.classList.toggle("hidden", !visible);
+        total++;
+        if (row.hasAudio) withAudio++;
+        if (visible) {
+          shown++;
+          anyVisible = true;
+        }
+      }
+      group.headRow.classList.toggle("hidden", !anyVisible);
+    }
+
+    practiceStatus.textContent = query
+      ? shown + " of " + total + " words"
+      : total + " words · " + withAudio + " with audio";
+    practiceStatus.classList.toggle("error", query !== "" && shown === 0);
+  }
+
+  function playWord(files) {
+    player.stop();
+    practiceStatus.classList.remove("error");
+    player.playSequence(files, reason => {
+      // Same reasoning as the quiz: a play button that silently does nothing is impossible
+      // to diagnose from the outside.
+      practiceStatus.textContent = "Audio failed: " + reason;
+      practiceStatus.classList.add("error");
+    });
+  }
 
   let currentQuestion = null;
 

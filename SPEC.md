@@ -24,6 +24,10 @@ at render time, so the same item can be asked different ways and distractors are
   fetched and merged automatically when the page opens. Adding a lesson = commit a CSV + add its filename to the
   manifest; everyone opening the site gets the same content, with no upload step. Loading a CSV by hand remains
   available as an alternative (useful for trying a deck before committing it, and when opening the page from disk).
+- Two modes, chosen by a switch on the start screen. **Test** (the default) is the drilling described throughout
+  this spec. **Practice** shows the same selected words as a vocabulary table to read through — see
+  "Practice mode" below. Both run off the same lesson selection; the mode switch is the only thing that decides
+  which screen Start opens.
 - Stateless multiple-choice drilling across eight question directions: six text directions (character ↔ meaning,
   character ↔ pinyin, pinyin ↔ meaning) and two listening directions (hear audio → pick the pinyin, hear audio →
   pick the character).
@@ -126,6 +130,11 @@ listening question. The app never substitutes an approximate syllable.
 
 ## Choosing what to practise
 
+A **mode** switch picks between Test and Practice. Test is the default, because drilling is what the app is for;
+practice is the reference view you reach for when a word won't stick. Below it, the lesson chips choose the words
+— both modes read the same selection — and a **Clear/All** control next to the chips selects or deselects every
+lesson at once, since drilling a single lesson otherwise means deselecting all the others one at a time.
+
 Four toggles on the start screen, all on by default, select which question types a session uses. Two are about
 modality — **Reading**, **Hearing** — and two about script — **Pinyin**, **Characters**.
 
@@ -152,7 +161,42 @@ which is missing. The Hearing toggle is disabled outright when no audio corpus i
 reports how many question types and how many words the current selection yields, since some items (those without
 complete audio) drop out of listening-only selections.
 
+In **practice** mode the Reading/Hearing pair is hidden rather than disabled: practice draws no such
+distinction, since every row is readable and every row carries its own play button. Pinyin and Characters stay,
+and there choose which *columns* the table shows.
+
 Toggle state is not persisted — like everything else, it resets to all-on each time the page loads.
+
+## Practice mode
+
+The purpose is studying a lesson's vocabulary without going back to the book, and without the words being
+scattered across its pages. Practice shows the selected lessons as one table:
+
+| column | shown when |
+|---|---|
+| play button | always |
+| character | **Characters** is on |
+| pinyin | **Pinyin** is on |
+| english | always |
+
+Specifics that matter:
+
+- **Rows keep textbook order**, not the shuffled order the quiz uses. A reference table you scroll twice should
+  have a word in the same place both times.
+- **Rows are grouped under a heading per lesson**, so several lessons can be open at once without losing track of
+  which is which. Words are still deduplicated exactly as the quiz pool is, keeping the copy from the lesson that
+  taught the word first.
+- **Tapping anywhere on a row plays it**, not only the speaker button — a much bigger target for a thumb. Playback
+  uses the same syllable-detection path as listening questions; nothing about the audio differs.
+- **Words with no recording show a dimmed muted-speaker glyph** instead of a button. 16 syllables were never
+  recorded (see "Audio"), so some words are reading-only; saying which is better than a button that does nothing.
+- **A filter box** narrows the table by character, pinyin or english. Matching ignores tone marks, so typing
+  `hao` finds `hǎo` — nobody types the marks. It is a plain substring match, which means a short query can match
+  inside an English gloss (`nin` matches *mor**nin**g*); that is a filter behaving like a filter, not a defect.
+- **Practice tracks nothing**, exactly like the quiz. It has no notion of which words you have read, and the
+  filter text dies with the screen.
+- **Both screens have a Back control** returning to the start screen. Before practice existed, the quiz had no
+  way back at all except reloading the page.
 
 ## Question generation
 

@@ -63,21 +63,32 @@ is the whole deployment story. This keeps the "must work on a phone, no backend"
    stops it after ~0.62 s, chaining to the next; files are never cut on disk (see `SPEC.md` for the licensing
    reason). `tools/fetch_audio.py` is the offline corpus builder and must stay out of the runtime path.
 
-4. **UI (mobile-first, single screen flow).**
-   - **Load screen:** a chip per manifest deck (all selected by default; `applyDeckSelection()` re-merges the
-     chosen decks and rebuilds the quiz state, so deselecting a lesson removes its words as *questions and as
-     distractors* — see `SPEC.md`), the four practice toggles (`allowedDirectionKeys()` maps toggle state to the
-     permitted direction keys — see the table in `SPEC.md`, and note the character/pinyin asymmetry), a live
-     count of question types and eligible words, and the "load your own CSV" fallback.
+4. **UI (mobile-first, single screen flow).** Three screens, one `.card` section each, swapped by toggling
+   `.hidden`: load, quiz, practice.
+   - **Load screen:** the Test/Practice mode switch (default Test), a chip per manifest deck with a Clear/All
+     control (all selected by default; `applyDeckSelection()` re-merges the chosen decks and rebuilds the quiz
+     state, so deselecting a lesson removes its words as *questions and as distractors* — see `SPEC.md`), the
+     four practice toggles (`allowedDirectionKeys()` maps toggle state to the permitted direction keys — see the
+     table in `SPEC.md`, and note the character/pinyin asymmetry), a live count of question types and eligible
+     words, and the "load your own CSV" fallback. In practice mode `refreshToggles()` hides the Reading/Hearing
+     block, relabels Start, and gates on "at least one script" instead of on question types.
    - **Question screen:** the prompt (e.g. the hanzi, or the meaning, depending on direction), 4 tappable option
      buttons sized for thumb use, immediate visual feedback (correct/incorrect) on tap, then a "next question"
      action.
+   - **Practice screen:** `renderPractice()` builds one `<table>` from `practiceGroups` (the chosen decks, kept
+     apart and deduplicated the same way the merged quiz pool is), with a full-width heading row per lesson so
+     column widths stay aligned across the whole page. Each word row gets `segmentPinyin()` run once at render;
+     rows with complete audio become clickable and play via `player.playSequence()`, rows without get a dimmed
+     placeholder. `applyFilter()` hides rows by substring against a tone-stripped haystack and hides a lesson's
+     heading once none of its rows survive. Nothing here touches `createQuizState()` — practice needs no
+     directions, no distractors and no queue.
    - No session-end screen, no score summary screen — nothing to summarize since nothing is tracked within or
      across sessions (consistent with the fully stateless v1 decision in `SPEC.md`).
 
 5. **No storage layer.** Explicitly: no `localStorage`, no `sessionStorage`, no cookies, no service worker cache
-   of progress. The only thing read from disk is the CSV file the user picks each time. The row queue and
-   distractor tracker from step 2 are plain in-memory JS variables, not storage — they vanish on reload and never
+   of progress. The only thing read from disk is the CSV file the user picks each time. The row queue, the
+   distractor tracker from step 2, the chosen mode and the practice filter text are plain in-memory JS variables,
+   not storage — they vanish on reload and never
    touch disk; they exist to make one session feel coherent, not to carry anything between sessions. This isn't an
    omission to revisit casually — it's the direct consequence of the scope decision in `SPEC.md`, and reintroducing
    any client-side persistence should go through the same scrutiny (durability, private-browsing, cross-device)
@@ -115,7 +126,14 @@ Do not implement, even partially or as a "simple version," during v1 build-out:
    and the word count matches the merged total; deselect one and confirm the count drops, that none of its words
    appear as questions, and — the easy thing to miss — that none appear as *wrong options* either; deselect all
    and confirm "Pick at least one lesson" with Start disabled rather than an empty quiz.
-7. **Audio verification:** confirm the load screen reports how many words have audio (31 of 35 for the starter
+7. **Practice-mode verification:** switch the mode to Practice and confirm the Reading/Hearing toggles disappear
+   and Start relabels. Open it and confirm: one heading per selected lesson, the row count matching the start
+   screen, four columns with both script toggles on and three with one off, a dimmed muted-speaker glyph on
+   exactly the words the validator reports as having no audio, and tapping a row (not just its button) playing
+   the word. Type a tone-less query (`hao`) and confirm it matches tone-marked rows, that a lesson's heading
+   disappears once none of its rows match, and that clearing the box restores everything. Confirm Back returns to
+   the start screen from both the practice table and a quiz in progress.
+8. **Audio verification:** confirm the load screen reports how many words have audio (31 of 35 for the starter
    deck — the 4 exclusions are expected, see `SPEC.md`). Play several listening questions: audio should start
    automatically, "Play again" should replay it, playback should stop after the syllable rather than continuing
    into the spoken definition, and answering should reveal the character and pinyin. For a multi-syllable word,
