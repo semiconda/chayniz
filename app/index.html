@@ -218,6 +218,48 @@
     font-size: 0.75rem;
     padding: 12px;
   }
+  /* Two equal buttons read as two buttons, not as one two-state control. A single track with
+     a thumb that slides between halves says "one of these, currently that one" at a glance,
+     while keeping each half a full-size tap target. */
+  .mode-switch {
+    position: relative;
+    display: flex;
+    background: #232b38;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 14px;
+  }
+  .mode-thumb {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    left: 4px;
+    width: calc(50% - 4px);
+    background: var(--accent);
+    border-radius: 9px;
+    transition: transform 0.18s ease;
+  }
+  .mode-switch[data-active="test"] .mode-thumb { transform: translateX(100%); }
+  .mode-opt {
+    position: relative;   /* keeps the labels above the thumb */
+    z-index: 1;
+    flex: 1;
+    padding: 12px 8px;
+    background: transparent;
+    border: none;
+    border-radius: 9px;
+    color: var(--muted);
+    font-size: 0.95rem;
+    transition: color 0.18s ease;
+  }
+  .mode-opt[aria-pressed="true"] {
+    color: #fff;
+    font-weight: 600;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .mode-thumb, .mode-opt { transition: none; }
+  }
   /* The vocabulary table is a long scrolling list, so the centred single-card layout
      that suits the quiz would push its top off screen. */
   .card.wide { max-width: 620px; }
@@ -326,9 +368,10 @@
 
       <div class="toggle-group">
         <div class="toggle-label">Mode</div>
-        <div class="toggle-row">
-          <button type="button" class="toggle" data-mode="practice">Practice</button>
-          <button type="button" class="toggle on" data-mode="test">Test</button>
+        <div class="mode-switch" id="mode-switch" data-active="test" role="group" aria-label="Mode">
+          <span class="mode-thumb" aria-hidden="true"></span>
+          <button type="button" class="mode-opt" data-mode="practice" aria-pressed="false">Practice</button>
+          <button type="button" class="mode-opt" data-mode="test" aria-pressed="true">Test</button>
         </div>
       </div>
 
@@ -703,7 +746,8 @@
   const lessonGroup = document.getElementById("lesson-group");
   const lessonRow = document.getElementById("lesson-row");
   const lessonAllBtn = document.getElementById("lesson-all-btn");
-  const modeButtons = Array.from(document.querySelectorAll(".toggle[data-mode]"));
+  const modeSwitch = document.getElementById("mode-switch");
+  const modeButtons = Array.from(document.querySelectorAll(".mode-opt[data-mode]"));
   const howBlock = document.getElementById("how-block");
   const practiceScreen = document.getElementById("practice-screen");
   const practiceBack = document.getElementById("practice-back");
@@ -896,10 +940,9 @@
     const hearingPossible = audioIndex.size > 0;
     if (!hearingPossible) toggles.hearing = false;
 
+    modeSwitch.dataset.active = mode;   // drives where the thumb sits
     modeButtons.forEach(btn => {
-      const on = btn.dataset.mode === mode;
-      btn.classList.toggle("on", on);
-      btn.setAttribute("aria-pressed", String(on));
+      btn.setAttribute("aria-pressed", String(btn.dataset.mode === mode));
     });
     // Practice draws no reading/hearing distinction — every row is readable and carries its
     // own play button — so the toggles that would claim otherwise come off screen entirely.
