@@ -330,14 +330,23 @@
     border-bottom: 1px solid var(--border);
     vertical-align: middle;
   }
+  /* Both buttons stay on one line; the cell shrinks to fit them. */
   .vocab td.speak-cell {
     width: 1%;
+    white-space: nowrap;
     padding-left: 0;
     padding-right: 10px;
   }
+  /* Characters and pinyin never break — a word split across lines is unreadable. The
+     english takes whatever width is left over and wraps onto as many lines as it needs,
+     which is what keeps a narrow phone from scrolling sideways. */
   .vocab td.hanzi { font-size: 1.35rem; white-space: nowrap; }
   .vocab td.pinyin { white-space: nowrap; }
-  .vocab td.meaning { color: var(--muted); font-size: 0.95rem; }
+  .vocab td.meaning {
+    color: var(--muted);
+    font-size: 0.95rem;
+    width: 100%;
+  }
   .speak {
     background: #232b38;
     border: 1px solid var(--border);
@@ -356,26 +365,22 @@
   tr.playable { cursor: pointer; }
   tr.playable:active td { background: #222a36; }
 
-  /* Each character in the vocabulary table is its own button, because the stroke-order
-     animation is per character while a row is often a two-character word. They have to
-     stay legible as text first and read as tappable second, so the affordance is a hairline
-     box that firms up on press rather than anything button-shaped. */
-  .hanzi-btn {
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: 8px;
-    color: var(--text);
-    font-size: 1.35rem;
-    line-height: 1.1;
-    padding: 4px 5px;
-    margin-right: 1px;
+  /* Writing sits beside listening as a second verb on the word, matching the speaker in
+     size and shape so the pair reads as one control group. */
+  .write {
+    background: #232b38;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 7px 8px;
+    font-size: 1rem;
+    line-height: 1;
+    margin-left: 5px;
   }
-  .hanzi-btn:hover { border-color: var(--border); }
-  .hanzi-btn:active { background: #2c3647; border-color: var(--accent); }
-  .vocab td.hanzi.tappable { padding-left: 1px; padding-right: 1px; }
-  /* A character with no animation shipped stays plain text: a button that opens an empty
-     sheet is worse than no button. */
-  .hanzi-plain { padding: 4px 5px; }
+  .write:active { background: #2c3647; }
+  .write.silent {
+    opacity: 0.3;
+    cursor: default;
+  }
 
   /* The stroke sheet is a <dialog>, which brings the focus trap, Esc-to-close and an inert
      background with it — none of that is worth reimplementing on an overlay div. It rises
@@ -1494,37 +1499,9 @@
     return char.codePointAt(0).toString(16).padStart(4, "0");
   }
 
-  // The hanzi cell is a row of per-character buttons rather than one string, because stroke
-  // order belongs to a character while a row is usually a two-character word. Characters
-  // with no animation shipped stay plain text — a button opening an empty sheet is worse
-  // than no button at all.
-  function hanziCell(item) {
-    const td = document.createElement("td");
-    let tappable = false;
-    for (const char of item.hanzi) {
-      if (!strokeIndex.has(strokeKey(char))) {
-        const span = document.createElement("span");
-        span.className = "hanzi-plain";
-        span.textContent = char;
-        td.appendChild(span);
-        continue;
-      }
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "hanzi-btn";
-      btn.textContent = char;
-      btn.setAttribute("aria-label", "Stroke order for " + char);
-      btn.addEventListener("click", event => {
-        // The row behind plays the word. Without this the sheet would open on top of audio
-        // nobody asked for.
-        event.stopPropagation();
-        openStrokes(item, char);
-      });
-      td.appendChild(btn);
-      tappable = true;
-    }
-    td.className = tappable ? "hanzi tappable" : "hanzi";
-    return td;
+  /** The characters of a word that have an animation, deduplicated, in order. */
+  function writableChars(hanzi) {
+    return Array.from(new Set(hanzi)).filter(c => strokeIndex.has(strokeKey(c)));
   }
 
   function renderPractice() {
@@ -1574,8 +1551,35 @@
           silent.title = "No recording for this word";
           speakCell.appendChild(silent);
         }
+        // Writing is a second verb on the word, beside listening, rather than the
+        // characters themselves being tappable: a word is usually two characters, and
+        // making each one a button forced gaps between them that Chinese does not have.
+        const writable = writableChars(item.hanzi);
+        if (writable.length) {
+          const write = document.createElement("button");
+          write.type = "button";
+          write.className = "write";
+          write.textContent = "✏️";
+          write.setAttribute("aria-label", "How to write " + item.hanzi);
+          write.addEventListener("click", event => {
+            // The row plays the word; without this, writing practice would open on top of
+            // audio nobody asked for.
+            event.stopPropagation();
+            openStrokes(item, writable[0]);
+          });
+          speakCell.appendChild(write);
+        } else {
+          // Same reasoning as the muted speaker: show which words have no animation rather
+          // than offer a button that does nothing.
+          const noWrite = document.createElement("span");
+          noWrite.className = "write silent";
+          noWrite.textContent = "✏️";
+          noWrite.title = "No stroke data for this word";
+          speakCell.appendChild(noWrite);
+        }
+
         tr.appendChild(speakCell);
-        if (showHanzi) tr.appendChild(hanziCell(item));
+        if (showHanzi) tr.appendChild(vocabCell("hanzi", item.hanzi));
         if (showPinyin) tr.appendChild(vocabCell("pinyin", item.pinyin));
         tr.appendChild(vocabCell("meaning", item.meaning));
         table.appendChild(tr);
