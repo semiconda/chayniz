@@ -337,15 +337,54 @@
     padding-left: 0;
     padding-right: 10px;
   }
-  /* Characters and pinyin never break — a word split across lines is unreadable. The
-     english takes whatever width is left over and wraps onto as many lines as it needs,
-     which is what keeps a narrow phone from scrolling sideways. */
   .vocab td.hanzi { font-size: 1.35rem; white-space: nowrap; }
   .vocab td.pinyin { white-space: nowrap; }
   .vocab td.meaning {
     color: var(--muted);
     font-size: 0.95rem;
-    width: 100%;
+    overflow-wrap: break-word;
+  }
+
+  /* Four columns and two buttons do not fit across a phone. Squeezing them produced
+     Zhōngguórén split mid-syllable and 中國人 stacked one character per line, which is worse
+     than the sideways scroll it fixed — so below 520px the row stops being four columns and
+     becomes a small grid: what you are learning on the first line, what it means underneath.
+     The english gets a whole line to wrap in, and nothing else has to break at all. */
+  @media (max-width: 520px) {
+    .card { padding: 16px; }
+    table.vocab, .vocab tbody, .vocab tr, .vocab td, .vocab th { display: block; }
+    .vocab tr {
+      display: grid;
+      grid-template-columns: auto auto 1fr;
+      grid-template-areas:
+        "btns hanzi pinyin"
+        "btns english english";
+      align-items: center;
+      column-gap: 10px;
+      row-gap: 2px;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    /* The lesson heading is a row too, but not a word — it keeps the plain block flow. */
+    .vocab tr.group-row {
+      display: block;
+      border-bottom: none;
+      padding: 0;
+    }
+    .vocab td {
+      border-bottom: none;
+      padding: 0;
+    }
+    .vocab td.speak-cell {
+      grid-area: btns;
+      width: auto;
+      padding: 0;
+    }
+    .vocab td.hanzi { grid-area: hanzi; font-size: 1.3rem; }
+    .vocab td.pinyin { grid-area: pinyin; }
+    .vocab td.meaning { grid-area: english; }
+    .speak, .write { padding: 6px 8px; }
+    .write { margin-left: 5px; }
   }
   .speak {
     background: #232b38;
@@ -1517,6 +1556,7 @@
     for (const group of practiceGroups) {
       if (group.items.length === 0) continue;
       const headRow = document.createElement("tr");
+      headRow.className = "group-row";   // the narrow layout turns word rows into grids; not this one
       const th = document.createElement("th");
       th.className = "group";
       th.colSpan = columns;
