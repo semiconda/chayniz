@@ -50,6 +50,9 @@ english — grouped under a heading per lesson and kept in textbook order, so a 
 you last saw it.
 
 - **Tap anywhere on a row** to hear it, not just the speaker button.
+- **Tap a character** to see how it's written — a sheet rises with the stroke-order animation,
+  the stroke count and a replay. In a two-character word you can step between the characters
+  without closing it.
 - The **Pinyin** and **Characters** toggles choose which columns appear. Reading/Hearing don't
   apply here and are hidden.
 - **A dimmed muted speaker** means that word has no recording — 16 syllables were never recorded,
@@ -145,7 +148,8 @@ and there isn't one. That's exactly why CI exists as well.
 
 ## How it works
 
-A single static page. No backend, no build step, no dependencies, no framework. Open
+A single static page. No backend, no build step, no framework, and nothing loaded from a
+third-party server at runtime — the one library it uses is vendored into the repo. Open
 `app/index.html` and it runs.
 
 - **Lessons** are fetched from `app/decks/` and merged, deduplicated on `(hanzi, pinyin, meaning)`.
@@ -181,6 +185,31 @@ fades. Attribution and the full usage notice are in
 Rebuild the corpus with [`tools/fetch_audio.py`](tools/fetch_audio.py) (needs `openpyxl` and
 ffmpeg; downloads a 1.5 GB source archive once).
 
+### Stroke order
+
+In practice mode each character is its own button, and tapping one raises a sheet with the
+animation for that character — stroke count, a replay, and the word's audio. A two-character
+word gets a strip to step between its characters without closing the sheet. Stroke order is a
+property of a character while a row is usually a word, which is why the cell is split into one
+button per character rather than being tappable as a whole.
+
+The strokes are vectors, not video. [Hanzi Writer](https://hanziwriter.org/) draws them from
+per-character outline data, which is why the character comes up in the app's own colours with
+its radical picked out in the accent colour, on a dashed 田字格 — and why it stays sharp at any
+size instead of being a 300×300 bitmap.
+
+**Both the renderer and the data are vendored into the repo**, pinned to exact versions by
+[`tools/fetch_strokes.py`](tools/fetch_strokes.py), and served from `app/strokes/`. Nothing is
+fetched from a CDN at runtime. That is deliberate: a dependency on someone else's server is a
+dependency on them keeping a file at a URL forever, and this app is meant to keep working
+without anyone maintaining it. The cost is 245 KB of data plus a 36 KB renderer in the repo;
+tapping a character fetches one ~2 KB file from the same origin.
+
+Re-run the tool after adding a lesson — it reads the decks and fetches whatever is new.
+
+Licences are in [`app/strokes/LICENSE.txt`](app/strokes/LICENSE.txt): MIT for the renderer,
+Arphic Public License for the outlines, both reproduced in full as both require.
+
 ---
 
 ## Why there's no progress tracking
@@ -210,8 +239,10 @@ app/
   index.html        the entire app
   decks/            lesson CSVs + manifest.json + authoring guide
   audio/            one recording per toned syllable + licence
+  strokes/          vendored Hanzi Writer + stroke outlines + licences
 tools/
   fetch_audio.py    rebuilds the audio corpus from the MOE package
+  fetch_strokes.py  vendors the stroke renderer and per-character outlines
   check_deck.py     validates lesson CSVs
 .githooks/
   pre-commit        refuses to commit an invalid deck
@@ -224,4 +255,5 @@ handover.md         context for picking the project up cold
 
 App code: free to reuse. Audio: CC BY-ND 3.0 TW, Ministry of Education (R.O.C.) — see
 [`app/audio/LICENSE.txt`](app/audio/LICENSE.txt) for the required attribution, which must be
-kept with the files.
+kept with the files. Stroke order: Hanzi Writer under MIT, its character outlines under the
+Arphic Public License — both in full in [`app/strokes/LICENSE.txt`](app/strokes/LICENSE.txt).

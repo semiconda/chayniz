@@ -355,6 +355,192 @@
   }
   tr.playable { cursor: pointer; }
   tr.playable:active td { background: #222a36; }
+
+  /* Each character in the vocabulary table is its own button, because the stroke-order
+     animation is per character while a row is often a two-character word. They have to
+     stay legible as text first and read as tappable second, so the affordance is a hairline
+     box that firms up on press rather than anything button-shaped. */
+  .hanzi-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 1.35rem;
+    line-height: 1.1;
+    padding: 4px 5px;
+    margin-right: 1px;
+  }
+  .hanzi-btn:hover { border-color: var(--border); }
+  .hanzi-btn:active { background: #2c3647; border-color: var(--accent); }
+  .vocab td.hanzi.tappable { padding-left: 1px; padding-right: 1px; }
+  /* A character with no animation shipped stays plain text: a button that opens an empty
+     sheet is worse than no button. */
+  .hanzi-plain { padding: 4px 5px; }
+
+  /* The stroke sheet is a <dialog>, which brings the focus trap, Esc-to-close and an inert
+     background with it — none of that is worth reimplementing on an overlay div. It rises
+     from the bottom edge on a phone, where a thumb is, and settles into a centred card on
+     a wider screen. Either way it is a detail about the thing you tapped, so it dims the
+     page behind rather than replacing it. */
+  .sheet {
+    width: 100%;
+    max-width: 420px;
+    margin: auto auto 0;           /* auto sides, pinned to the bottom edge */
+    padding: 0;
+    border: 1px solid var(--border);
+    border-bottom: none;
+    border-radius: 20px 20px 0 0;
+    background: var(--panel);
+    color: var(--text);
+    max-height: 92dvh;
+    overflow: visible;
+  }
+  .sheet::backdrop {
+    background: rgba(8, 10, 14, 0.62);
+    backdrop-filter: blur(3px);
+  }
+  .sheet[open] { animation: sheet-rise 0.22s cubic-bezier(0.2, 0.8, 0.3, 1); }
+  .sheet[open]::backdrop { animation: sheet-fade 0.22s ease; }
+  @keyframes sheet-rise { from { transform: translateY(14px); opacity: 0; } }
+  @keyframes sheet-fade { from { opacity: 0; } }
+  @media (min-width: 560px) {
+    .sheet {
+      margin: auto;
+      border-radius: 20px;
+      border-bottom: 1px solid var(--border);
+      max-width: 380px;
+    }
+    @keyframes sheet-rise { from { transform: scale(0.97); opacity: 0; } }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .sheet[open], .sheet[open]::backdrop { animation: none; }
+  }
+  .sheet-body {
+    padding: 10px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    max-height: 92dvh;
+    overflow-y: auto;
+  }
+  /* The grab handle says "this came up from the bottom and goes back down" without a
+     sentence of explanation. Decorative only — the close button does the work. */
+  .sheet-grip {
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+    margin: 0 auto 12px;
+    flex: none;
+  }
+  @media (min-width: 560px) { .sheet-grip { display: none; } }
+  .sheet-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .sheet-word { flex: 1; min-width: 0; }
+  .sheet-word-hanzi { font-size: 1.1rem; }
+  .sheet-word-sub {
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-top: 2px;
+    overflow-wrap: anywhere;
+  }
+  .sheet-close {
+    flex: none;
+    background: #232b38;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 10px;
+    width: 34px;
+    height: 34px;
+    font-size: 1rem;
+    line-height: 1;
+  }
+  .sheet-close:active { background: #2c3647; }
+  /* The strokes are vectors, so the character is drawn in the app's own colours directly on
+     the panel. The dashed cross is the 田字格 a workbook rules its squares with: it gives
+     the eye a reference for where in the square each stroke begins. */
+  .stroke-grid {
+    position: relative;
+    align-self: center;
+    width: 100%;
+    max-width: 280px;
+    aspect-ratio: 1 / 1;
+    background: #161b24;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    cursor: pointer;
+  }
+  .stroke-grid::before {
+    content: "";
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    top: 50%;
+    border-top: 1px dashed var(--border);
+  }
+  .stroke-grid::after {
+    content: "";
+    position: absolute;
+    top: 10px;
+    bottom: 10px;
+    left: 50%;
+    border-left: 1px dashed var(--border);
+  }
+  .stroke-grid svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  .sheet-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 14px;
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  .sheet-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .sheet-btn {
+    flex: 1;
+    padding: 12px 10px;
+    background: #232b38;
+    color: var(--text);
+    border: 1px solid var(--border);
+    font-size: 0.95rem;
+  }
+  .sheet-btn:active { background: #2c3647; }
+  /* Only shown for multi-character words, where stepping 你 → 好 without closing the sheet
+     is the whole point. */
+  .sheet-chars {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .sheet-char {
+    background: #232b38;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 10px;
+    padding: 6px 10px;
+    font-size: 1.15rem;
+    line-height: 1.1;
+  }
+  .sheet-char[aria-pressed="true"] {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
   .hidden { display: none !important; }
 </style>
 </head>
@@ -434,8 +620,35 @@
     <div id="vocab-list"></div>
   </section>
 </main>
+
+<dialog id="stroke-sheet" class="sheet" aria-labelledby="stroke-title">
+  <div class="sheet-body">
+    <div class="sheet-grip" aria-hidden="true"></div>
+    <div class="sheet-head">
+      <div class="sheet-word">
+        <div class="sheet-word-hanzi" id="stroke-title"></div>
+        <div class="sheet-word-sub" id="stroke-word-sub"></div>
+      </div>
+      <button type="button" class="sheet-close" id="stroke-close" aria-label="Close">✕</button>
+    </div>
+    <div class="sheet-chars hidden" id="stroke-chars" role="group" aria-label="Characters in this word"></div>
+    <div id="stroke-target" class="stroke-grid" role="img"></div>
+    <div class="sheet-meta">
+      <span id="stroke-count"></span>
+      <span>tap the drawing to replay</span>
+    </div>
+    <div class="sheet-actions">
+      <button type="button" class="sheet-btn" id="stroke-replay">↺ Replay</button>
+      <button type="button" class="sheet-btn" id="stroke-say">🔊 Say it</button>
+    </div>
+  </div>
+</dialog>
+
 <footer>No progress is saved. Reloading starts a fresh session.</footer>
 
+<!-- Vendored, not loaded from a CDN: the app has to keep working whatever happens to
+     someone else's server. See app/strokes/LICENSE.txt. -->
+<script src="strokes/hanzi-writer.min.js"></script>
 <script>
 (function () {
   "use strict";
@@ -760,9 +973,21 @@
   const promptValueEl = document.getElementById("prompt-value");
   const optionsEl = document.getElementById("options");
   const nextBtn = document.getElementById("next-btn");
+  const strokeSheet = document.getElementById("stroke-sheet");
+  const strokeTitle = document.getElementById("stroke-title");
+  const strokeWordSub = document.getElementById("stroke-word-sub");
+  const strokeChars = document.getElementById("stroke-chars");
+  const strokeTarget = document.getElementById("stroke-target");
+  const strokeCount = document.getElementById("stroke-count");
+  const strokeClose = document.getElementById("stroke-close");
+  const strokeReplay = document.getElementById("stroke-replay");
+  const strokeSay = document.getElementById("stroke-say");
 
   let quiz = null;
   let audioIndex = new Set();
+  // codepoint (4-digit lowercase hex, the filename) -> stroke count. Empty when the
+  // animations have not been fetched, which simply leaves the characters as plain text.
+  let strokeIndex = new Map();
   let bundledDecks = [];              // every lesson the manifest lists, parsed once on load
   const selectedDecks = new Set();    // filenames of the lessons currently being drilled
 
@@ -1027,8 +1252,18 @@
     }
   }
 
+  async function loadStrokeIndex() {
+    try {
+      const res = await fetch("strokes/index.json", { cache: "no-store" });
+      return res.ok ? new Map(Object.entries(await res.json())) : new Map();
+    } catch (err) {
+      return new Map();   // no animations available; characters stay plain text
+    }
+  }
+
   (async function init() {
     audioIndex = await loadAudioIndex();
+    strokeIndex = await loadStrokeIndex();
     refreshToggles();
     try {
       bundledDecks = await loadBundledDecks();
@@ -1254,6 +1489,44 @@
     return td;
   }
 
+  /** '早' -> '65e9': the codepoint in hex, which is also the animation's filename. */
+  function strokeKey(char) {
+    return char.codePointAt(0).toString(16).padStart(4, "0");
+  }
+
+  // The hanzi cell is a row of per-character buttons rather than one string, because stroke
+  // order belongs to a character while a row is usually a two-character word. Characters
+  // with no animation shipped stay plain text — a button opening an empty sheet is worse
+  // than no button at all.
+  function hanziCell(item) {
+    const td = document.createElement("td");
+    let tappable = false;
+    for (const char of item.hanzi) {
+      if (!strokeIndex.has(strokeKey(char))) {
+        const span = document.createElement("span");
+        span.className = "hanzi-plain";
+        span.textContent = char;
+        td.appendChild(span);
+        continue;
+      }
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "hanzi-btn";
+      btn.textContent = char;
+      btn.setAttribute("aria-label", "Stroke order for " + char);
+      btn.addEventListener("click", event => {
+        // The row behind plays the word. Without this the sheet would open on top of audio
+        // nobody asked for.
+        event.stopPropagation();
+        openStrokes(item, char);
+      });
+      td.appendChild(btn);
+      tappable = true;
+    }
+    td.className = tappable ? "hanzi tappable" : "hanzi";
+    return td;
+  }
+
   function renderPractice() {
     const showHanzi = toggles.characters;
     const showPinyin = toggles.pinyin;
@@ -1302,7 +1575,7 @@
           speakCell.appendChild(silent);
         }
         tr.appendChild(speakCell);
-        if (showHanzi) tr.appendChild(vocabCell("hanzi", item.hanzi));
+        if (showHanzi) tr.appendChild(hanziCell(item));
         if (showPinyin) tr.appendChild(vocabCell("pinyin", item.pinyin));
         tr.appendChild(vocabCell("meaning", item.meaning));
         table.appendChild(tr);
@@ -1356,6 +1629,136 @@
       practiceStatus.classList.add("error");
     });
   }
+
+  // ---------- Stroke order: the animation for one character ----------
+  // Drawn by Hanzi Writer from the outlines in strokes/data/, both vendored into the repo
+  // by tools/fetch_strokes.py. Vectors rather than the watermarked GIFs this used to show:
+  // they take the app's own colours, stay sharp at any size, and weigh a tenth as much.
+  const STROKE_BOX = 280;           // the square the outlines are drawn in
+  let sheetChar = "";
+  let writer = null;
+
+  // Created with a real character, never a placeholder: Hanzi Writer asks the loader for
+  // whatever it is given straight away, and "" has no codepoint to build a filename from.
+  function makeWriter(char) {
+    return HanziWriter.create(strokeTarget, char, {
+      width: STROKE_BOX,
+      height: STROKE_BOX,
+      padding: 16,
+      showCharacter: false,
+      showOutline: true,
+      strokeColor: "#e8ecf1",       // --text: the ink
+      outlineColor: "#333c4d",      // the ghost of the finished character
+      radicalColor: "#4f8cff",      // --accent: which part is the radical, for free
+      strokeAnimationSpeed: 1,
+      delayBetweenStrokes: 260,
+      delayBetweenLoops: 1400,      // the beat on the finished character before it redraws
+      // Local files only. Without this Hanzi Writer fetches from a CDN, which is exactly
+      // the dependency this directory exists to avoid.
+      charDataLoader: function (requested, onLoad, onError) {
+        if (!requested || requested.codePointAt(0) === undefined) {
+          onError(new Error("no character"));
+          return;
+        }
+        fetch("strokes/data/" + strokeKey(requested) + ".json")
+          .then(res => res.ok ? res.json() : Promise.reject(new Error(res.status)))
+          .then(onLoad)
+          .catch(onError);
+      },
+    });
+  }
+
+  function showStrokeChar(char) {
+    sheetChar = char;
+    const strokes = strokeIndex.get(strokeKey(char));
+    strokeCount.textContent = strokes === 1 ? "1 stroke" : strokes + " strokes";
+    strokeTarget.setAttribute("aria-label", "Stroke order for " + char);
+    Array.from(strokeChars.children).forEach(btn => {
+      btn.setAttribute("aria-pressed", String(btn.textContent === char));
+    });
+
+    if (!writer) writer = makeWriter(char);
+    writer.setCharacter(char)
+      .then(() => {
+        // The SVG is created at a fixed size; a viewBox lets it shrink with the sheet on a
+        // narrow phone instead of overflowing it.
+        const svg = strokeTarget.querySelector("svg");
+        if (svg && !svg.getAttribute("viewBox")) {
+          svg.setAttribute("viewBox", "0 0 " + STROKE_BOX + " " + STROKE_BOX);
+          svg.removeAttribute("width");
+          svg.removeAttribute("height");
+        }
+        if (sheetChar === char) writer.loopCharacterAnimation();
+      })
+      .catch(() => {
+        // Only reachable if strokes/data/ is incomplete, which means the page was published
+        // without running the fetch tool. Say so rather than showing an empty square.
+        strokeCount.textContent = "No stroke data for " + char;
+      });
+  }
+
+  function openStrokes(item, char) {
+    strokeTitle.textContent = item.hanzi;
+    strokeWordSub.textContent = item.pinyin + " · " + item.meaning;
+
+    // Stepping 你 → 好 without closing the sheet is the point of the strip; for a
+    // single-character word it would just repeat the heading, so it stays hidden. Doubled
+    // words — 謝謝, 太太 — dedupe to one button, since two identical ones would suggest
+    // the second character is written differently.
+    const chars = Array.from(new Set(item.hanzi)).filter(c => strokeIndex.has(strokeKey(c)));
+    strokeChars.textContent = "";
+    strokeChars.classList.toggle("hidden", chars.length < 2);
+    if (chars.length >= 2) {
+      for (const c of chars) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "sheet-char";
+        btn.textContent = c;
+        btn.addEventListener("click", () => showStrokeChar(c));
+        strokeChars.appendChild(btn);
+      }
+    }
+
+    const files = audioIndex.size ? segmentPinyin(item.pinyin, audioIndex) : null;
+    strokeSay.classList.toggle("hidden", !files);
+    strokeSay.onclick = files ? () => playWord(files) : null;
+
+    // Opened before the drawing starts, so a character whose data failed to load still
+    // shows a sheet saying as much instead of nothing happening at all.
+    strokeSheet.showModal();
+    showStrokeChar(char);
+  }
+
+  strokeClose.addEventListener("click", () => strokeSheet.close());
+  // Restarting the loop rather than playing once, so the sheet keeps behaving the same way
+  // whether or not you touched it.
+  strokeReplay.addEventListener("click", () => { if (writer) writer.loopCharacterAnimation(); });
+  // Tapping the drawing itself is the most obvious way to ask for it again.
+  strokeTarget.addEventListener("click", () => { if (writer) writer.loopCharacterAnimation(); });
+
+  // A sheet is expected to dismiss when you tap the dimmed area beside it. The dialog's own
+  // box is exactly the sheet, so a click that lands on the dialog node and not on its
+  // contents came from the backdrop.
+  strokeSheet.addEventListener("click", event => {
+    if (event.target === strokeSheet) strokeSheet.close();
+  });
+
+  strokeSheet.addEventListener("keydown", event => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    const chars = Array.from(strokeChars.children).map(btn => btn.textContent);
+    if (chars.length < 2) return;
+    event.preventDefault();
+    const step = event.key === "ArrowRight" ? 1 : -1;
+    const at = chars.indexOf(sheetChar);
+    showStrokeChar(chars[(at + step + chars.length) % chars.length]);
+  });
+
+  strokeSheet.addEventListener("close", () => {
+    // The loop would otherwise keep animating behind a shut dialog, burning battery on a
+    // phone to draw something nobody can see.
+    if (writer) writer.pauseAnimation();
+    player.stop();
+  });
 
   let currentQuestion = null;
 
