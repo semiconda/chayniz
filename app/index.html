@@ -510,7 +510,7 @@
     position: relative;
     align-self: center;
     width: 100%;
-    max-width: 280px;
+    max-width: 260px;
     aspect-ratio: 1 / 1;
     background: #161b24;
     border: 1px solid var(--border);
@@ -548,6 +548,66 @@
     margin-top: 14px;
     color: var(--muted);
     font-size: 0.85rem;
+  }
+  /* The breakdown under the square. Stroke count tells you how long the character takes
+     to write; this tells you what it is, which is the part that makes it stick — two or
+     three pieces that mean something, rather than seventeen strokes to memorise. */
+  .parts {
+    margin-top: 12px;
+    border-top: 1px solid var(--border);
+    padding-top: 10px;
+  }
+  .parts-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    color: var(--muted);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-bottom: 4px;
+  }
+  .parts-legend { text-transform: none; letter-spacing: 0; font-size: 0.78rem; }
+  .part {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 2px 0;
+  }
+  .part-char {
+    flex: none;
+    width: 1.5em;
+    text-align: center;
+    font-size: 1.3rem;
+    line-height: 1.15;
+  }
+  /* Blue is already the colour the animation draws the radical in, so the row and the
+     strokes it names tie together without a sentence saying so. */
+  .part-char.radical { color: var(--accent); }
+  .part-text {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.85rem;
+    color: var(--muted);
+    overflow-wrap: anywhere;
+  }
+  .part-role {
+    flex: none;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 2px 8px;
+  }
+  /* The one-line story of the character — 'A woman with a son' — which is what you will
+     actually recall at the moment of writing it. */
+  .parts-hint {
+    margin: 6px 0 0;
+    font-size: 0.88rem;
+    color: var(--text);
+    line-height: 1.45;
   }
   .sheet-actions {
     display: flex;
@@ -681,6 +741,10 @@
       <span id="stroke-count"></span>
       <span>tap the drawing to replay</span>
     </div>
+    <!-- Empty, and hidden, for a character the data says nothing about. A pictograph
+         keeps its one-line story but gets no components: it is one drawing rather than an
+         assembly of parts, so taking it apart explains nothing. -->
+    <div class="parts hidden" id="stroke-parts"></div>
     <div class="sheet-actions">
       <button type="button" class="sheet-btn" id="stroke-replay">↺ Replay</button>
       <button type="button" class="sheet-btn" id="stroke-say">🔊 Say it</button>
@@ -1023,6 +1087,7 @@
   const strokeChars = document.getElementById("stroke-chars");
   const strokeTarget = document.getElementById("stroke-target");
   const strokeCount = document.getElementById("stroke-count");
+  const partsBox = document.getElementById("stroke-parts");
   const strokeClose = document.getElementById("stroke-close");
   const strokeReplay = document.getElementById("stroke-replay");
   const strokeSay = document.getElementById("stroke-say");
@@ -1032,6 +1097,10 @@
   // codepoint (4-digit lowercase hex, the filename) -> stroke count. Empty when the
   // animations have not been fetched, which simply leaves the characters as plain text.
   let strokeIndex = new Map();
+  // What each character is made of: { chars: {codepoint: {parts, hint, radical, ...}},
+  // parts: {component: {gloss, pinyin}} }. Empty when parts.json has not been fetched,
+  // which simply leaves the sheet showing the animation alone.
+  let partsData = { chars: {}, parts: {} };
   let bundledDecks = [];              // every lesson the manifest lists, parsed once on load
   const selectedDecks = new Set();    // filenames of the lessons currently being drilled
 
@@ -1305,9 +1374,21 @@
     }
   }
 
+  async function loadStrokeParts() {
+    try {
+      const res = await fetch("strokes/parts.json", { cache: "no-store" });
+      if (!res.ok) return { chars: {}, parts: {} };
+      const data = await res.json();
+      return { chars: data.chars || {}, parts: data.parts || {} };
+    } catch (err) {
+      return { chars: {}, parts: {} };   // no breakdown available; the sheet drops it
+    }
+  }
+
   (async function init() {
     audioIndex = await loadAudioIndex();
     strokeIndex = await loadStrokeIndex();
+    partsData = await loadStrokeParts();
     refreshToggles();
     try {
       bundledDecks = await loadBundledDecks();
@@ -1712,11 +1793,85 @@
     });
   }
 
+  // ---------- What the character is made of ----------
+  // Built from strokes/parts.json, which tools/fetch_strokes.py extracts from Make Me a
+  // Hanzi. Three things, in the order they help: the components, each glossed; which one
+  // carries the meaning and which one carries the sound, where the character is one of the
+  // phono-semantic majority; and the one-line story, where the character has one.
+  //
+  // 謝 is not seventeen strokes to memorise — it is 言 'speech' plus 射, which is there for
+  // its sound. That is the sentence this block exists to put on the screen.
+
+  /** One row: the component, its pinyin and gloss, and what it is doing in the character. */
+  function partRow(component, entry) {
+    const part = partsData.parts[component] || {};
+    const row = document.createElement("div");
+    row.className = "part";
+
+    const char = document.createElement("span");
+    char.className = "part-char" + (component === entry.radical ? " radical" : "");
+    char.textContent = component;
+    row.appendChild(char);
+
+    const text = document.createElement("span");
+    text.className = "part-text";
+    // 青 qīng under 請 qǐng is the whole point of a phonetic component, so the sound is
+    // worth showing for every part that has one, not only the phonetic.
+    text.textContent = [part.pinyin, part.gloss].filter(Boolean).join(" · ");
+    row.appendChild(text);
+
+    // Meaning and sound are what a learner can use; 'radical' is a dictionary fact, so it
+    // only gets the label when there is nothing more useful to say about that part.
+    const role = component === entry.semantic ? "meaning"
+      : component === entry.phonetic ? "sound"
+      : component === entry.radical ? "radical" : "";
+    if (role) {
+      const tag = document.createElement("span");
+      tag.className = "part-role";
+      tag.textContent = role;
+      row.appendChild(tag);
+    }
+    return row;
+  }
+
+  function showParts(char) {
+    const entry = partsData.chars[strokeKey(char)];
+    partsBox.textContent = "";
+    partsBox.classList.toggle("hidden", !entry);
+    if (!entry) return;
+
+    if (entry.parts) {
+      const head = document.createElement("div");
+      head.className = "parts-head";
+      const label = document.createElement("span");
+      label.textContent = "Made of";
+      head.appendChild(label);
+      // The blue row matches the blue strokes in the animation above; saying which is
+      // which costs four words and saves the guess.
+      if (entry.radical) {
+        const legend = document.createElement("span");
+        legend.className = "parts-legend";
+        legend.textContent = "blue is the radical";
+        head.appendChild(legend);
+      }
+      partsBox.appendChild(head);
+      for (const component of entry.parts) partsBox.appendChild(partRow(component, entry));
+    }
+
+    if (entry.hint) {
+      const hint = document.createElement("p");
+      hint.className = "parts-hint";
+      hint.textContent = entry.hint;
+      partsBox.appendChild(hint);
+    }
+  }
+
   function showStrokeChar(char) {
     sheetChar = char;
     const strokes = strokeIndex.get(strokeKey(char));
     strokeCount.textContent = strokes === 1 ? "1 stroke" : strokes + " strokes";
     strokeTarget.setAttribute("aria-label", "Stroke order for " + char);
+    showParts(char);
     Array.from(strokeChars.children).forEach(btn => {
       btn.setAttribute("aria-pressed", String(btn.textContent === char));
     });

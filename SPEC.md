@@ -190,6 +190,12 @@ Specifics that matter:
   uses the same syllable-detection path as listening questions; nothing about the audio differs.
 - **Words with no recording show a dimmed muted-speaker glyph** instead of a button. 16 syllables were never
   recorded (see "Audio"), so some words are reading-only; saying which is better than a button that does nothing.
+- **A pencil button beside the speaker opens the writing sheet** for that word: the stroke-order animation, the
+  stroke count, and what the character is made of — its components, each with pinyin and a gloss, which one
+  carries the meaning and which the sound, and the one-line etymology where there is one. A word of two
+  characters gets a strip to step between them, since stroke order belongs to a character and a row is a word.
+  Characters the data cannot take apart — the old pictographs, which are one drawing rather than an assembly —
+  show their etymology alone rather than a decomposition that explains nothing.
 - **A filter box** narrows the table by character, pinyin or english. Matching ignores tone marks, so typing
   `hao` finds `hǎo` — nobody types the marks. It is a plain substring match, which means a short query can match
   inside an English gloss (`nin` matches *mor**nin**g*); that is a filter behaving like a filter, not a defect.

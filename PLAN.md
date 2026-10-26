@@ -80,7 +80,9 @@ is the whole deployment story. This keeps the "must work on a phone, no backend"
      column widths stay aligned across the whole page. Each word row gets `segmentPinyin()` run once at render;
      rows with complete audio become clickable and play via `player.playSequence()`, rows without get a dimmed
      placeholder. `applyFilter()` hides rows by substring against a tone-stripped haystack and hides a lesson's
-     heading once none of its rows survive. Nothing here touches `createQuizState()` — practice needs no
+     heading once none of its rows survive. The pencil button calls `openStrokes()`, which drives Hanzi Writer
+     over the vendored outlines and `showParts()` over `strokes/parts.json`; both files are missing-tolerant, so
+     a checkout without them simply loses the sheet rather than breaking the table. Nothing here touches `createQuizState()` — practice needs no
      directions, no distractors and no queue.
    - No session-end screen, no score summary screen — nothing to summarize since nothing is tracked within or
      across sessions (consistent with the fully stateless v1 decision in `SPEC.md`).

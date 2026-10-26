@@ -8,7 +8,7 @@ memory is used here, deliberately, so that any fresh session or device can pick 
 asked for it to be updated in parallel with the code. Whenever a change alters what the app does, how lessons are
 added, or how validation works, update `README.md` in the same commit — alongside `SPEC.md`/`PLAN.md`.
 
-## Current state (2026-10-18)
+## Current state (2026-10-27)
 
 - **Live, tested on a phone including audio:** https://semiconda.github.io/chayniz/app/
 - **`app/index.html` is the whole app**: one file, no build step, no backend, no dependencies. Three screens:
@@ -26,6 +26,10 @@ added, or how validation works, update `README.md` in the same commit — alongs
   (Reading / Hearing / Pinyin / Characters) select which are used; the character/pinyin asymmetry is deliberate
   and documented in `SPEC.md`.
 - **Audio works**, from real MOE recordings — see the decision list below.
+- **Practice rows have a pencil button** that opens a writing sheet: the stroke-order animation, the stroke
+  count, and what the character is made of — components with pinyin and gloss, which piece carries the meaning
+  and which the sound, and the etymology line. Renderer, outlines and component data are all vendored under
+  `app/strokes/` by `tools/fetch_strokes.py`; nothing is fetched from a CDN at runtime.
 - **Deck validation exists in three layers**: `tools/check_deck.py` run by hand, `.githooks/pre-commit` which
   blocks a local commit, and GitHub Actions which reports after a push (it does *not* block). The CI layer is the
   only one that covers commits made from a phone.
