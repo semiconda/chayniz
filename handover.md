@@ -8,7 +8,7 @@ memory is used here, deliberately, so that any fresh session or device can pick 
 asked for it to be updated in parallel with the code. Whenever a change alters what the app does, how lessons are
 added, or how validation works, update `README.md` in the same commit — alongside `SPEC.md`/`PLAN.md`.
 
-## Current state (2026-10-27)
+## Current state (2026-11-01)
 
 - **Live, tested on a phone including audio:** https://semiconda.github.io/chayniz/app/
 - **`app/index.html` is the whole app**: one file, no build step, no backend, no dependencies. Three screens:
@@ -37,8 +37,8 @@ added, or how validation works, update `README.md` in the same commit — alongs
   Keep doing that.
 
 **Content follows the textbook.** Decks mirror 新版實用視聽華語 (Practical Audio-Visual Chinese) vol. 1 — the
-standard book at Taiwanese university language centres, and the user's course text. Lessons 1-4 are done (`lesson01.csv` 32 words, `lesson02.csv` 24,
-`lesson03.csv` 29, `lesson04.csv` 33 — 118 in total, 108 of them with audio); lessons 5-12 remain. The page-range table is in `app/decks/README.md`.
+standard book at Taiwanese university language centres, and the user's course text. Lessons 1-6 are done (`lesson01.csv` 32 words, `lesson02.csv` 24,
+`lesson03.csv` 29, `lesson04.csv` 33, `lesson05.csv` 34, `lesson06.csv` 27 — 179 in total, 155 of them with audio); lessons 7-12 remain. The page-range table is in `app/decks/README.md`.
 
 The user's chosen rhythm: **one or two lessons at a time, staying a little ahead of their class**, so that the
 format keeps getting corrected by real study rather than by guesswork. Don't batch the remainder unasked. An earlier invented `basics.csv` was retired when lesson 1 landed, because
@@ -136,8 +136,9 @@ Learning Taiwanese Mandarin from zero. The app is for:
 
 ## Open items
 
-- **Lessons 5-12.** Lessons 1-4 are done. One or two at a time, following `app/decks/README.md`; see the rhythm
-  note above. Needs the textbook PDF, which is gitignored and may not be on the machine you're working from.
+- **Lessons 7-12.** Lessons 1-6 are done. One or two at a time, following `app/decks/README.md`; see the rhythm
+  note above. Needs the textbook PDF, which is gitignored and may not be on the machine you're working from —
+  on the user's Windows machine it is `~/Downloads/Practical Audio-Visual Chinese 1 2nd edition.pdf`.
 - **The 16 missing syllables stay missing — decided, don't re-propose.** Asked on 2026-10-18 whether to mine
   MOE's 15 GB word-level package to recover `wo3` (我), `che1` (車), `men5` (們) and the rest, the user said no.
   Those words stay reading-only. Note the gap has two distinct causes and that package would only fix the first:
@@ -150,7 +151,10 @@ Learning Taiwanese Mandarin from zero. The app is for:
 - **好久不見 is deliberately absent** from lesson 2: the only four-character word in the corpus, so its questions
   were answerable by shape alone. Add it back once four-character words form a crowd.
 - **Does the NTU course actually follow the book's order?** Decks mirror the textbook; if the course skips or
-  reorders chapters, that's the wrong target. Raised with the user, not yet answered.
+  reorders chapters, that's the wrong target. Raised with the user, not yet answered — but the course handouts
+  in `../../chinese/` are named `B1L1`, `B1L2` and arrive one lesson at a time, which is the book's own order.
+  Those handouts are the better check than the book: as of week 6 the class was on lesson 2 while the decks
+  now run to lesson 6, so "a little ahead" has become a long way ahead. Worth asking before adding lesson 7.
 - **`hanzi` is currently required** in every row. Making it optional would allow pinyin-only decks (sound and
   meaning first, characters later). Raised, not yet decided.
 - **Distractors aren't targeted at pinyin traps** (yu/you, iu/iou, ui/uei). They now match the answer's *length*,
@@ -187,7 +191,7 @@ first-lesson heading being glued to the status line, and a chips label that read
 in the DOM and obvious in a screenshot. Audio can't be verified this way; that still needs a real device.
 
 **The scripts are deliberately not committed.** They were written, used, and dropped. They assert exact counts
-(118 words, 10 silent rows, 4 lesson headings), so adding a lesson — the main ongoing activity here — breaks them
+(118 words, 10 silent rows, 4 lesson headings — all stale now), so adding a lesson — the main ongoing activity here — breaks them
 on purpose-built work, and a later session would waste time repairing a test that never caught anything. They
 also can't run where lessons are actually committed from, a phone browser; `check_deck.py` in CI is the layer
 that covers that. Write them fresh if you want them; don't go looking for them in `tools/`.

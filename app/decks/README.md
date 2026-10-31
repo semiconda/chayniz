@@ -137,6 +137,8 @@ too), continue through SUPPLEMENTARY VOCABULARY, and stop where SYNTAX PRACTICE 
 | 2 | 24-28 | 64-68 |
 | 3 | 38-42 | 78-82 |
 | 4 | 58-63 | 98-103 |
+| 5 | 83-87 | 123-127 |
+| 6 | 101-105 | 141-145 |
 
 Three traps specific to this book:
 
@@ -166,6 +168,19 @@ Three traps specific to this book:
 - **Bound forms without a real gloss are skipped.** Lesson 3's 法 is "the transliteration of the F in
   France" — nothing a learner can recognise as an answer. 們 (lesson 2, "plural suffix") is the kind
   of bound form worth keeping; 法 is not.
+- **The book prints `zhèi`/`nèi` for 這/那 in compounds** — lesson 5's 這些 and 那些 are given as
+  `zhèixiē` / `nèixiē`. Those are the colloquial contractions of 這一 / 那一. Write the MOE dictionary
+  readings `zhèxiē` / `nàxiē`: they match 這 and 那 as lesson 2 and 4 already teach them, and `zhei`
+  has no recording in the corpus while `zhe4` does.
+- **A later lesson's headword can be an earlier lesson's surname.** Lesson 5 teaches 張 as the measure
+  word for flat things, but lesson 2 already has 張 as surname Zhang. The hanzi column is unique across
+  decks, so the measure word was dropped; it is learnable from 一張像片 in the lesson text.
+- **A sub-entry that re-glosses a word already in the decks is worth dropping, not disambiguating.**
+  Lesson 6 lists 電視機 "television set" under 照像機, and lesson 3 already teaches 電視 "television".
+  Two options that differ only by "set" make a question a coin toss, which is worse than one word fewer.
+- **Where a lesson's only long word is its title word, expect a length WARN and accept it.** 照像機 is
+  the single three-character word in lesson 6; dropping the word the lesson is named after would cost
+  more than the warning does. The app falls back to mixed-length options for it.
 
 Things that reliably go wrong with any source:
 

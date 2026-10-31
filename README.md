@@ -208,7 +208,7 @@ which piece carries the meaning and which carries the sound. Where the data has 
 
 Pictographs are deliberately left without a breakdown. 日 decomposes into ⿴口一, which is true
 of the shape and useless as an explanation, so they get their hint — *The sun* — and nothing
-else. 90 of the 109 characters in the decks break down; the rest show whatever they have.
+else. 131 of the 159 characters in the decks break down; the rest show whatever they have.
 
 The breakdown comes from the dictionary half of
 [Make Me a Hanzi](https://github.com/skishore/makemeahanzi), cut down to the deck characters
