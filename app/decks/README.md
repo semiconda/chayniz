@@ -255,7 +255,8 @@ chinese,pinyin,english,also,gaps
 
 **Every word must already be taught** — in this lesson's deck or an earlier one, with the same
 pinyin. A learner must never meet a word they weren't taught. Numbers built from taught digits
-(三百五十) are the one exception. People are surname plus title (王 先生, 李 小姐): given names
+(三百五十, 兩千, 一億五千萬) are the one exception; write 兩 rather than 二 before 百, 千, 萬 and 億
+where Taiwan would say it, as the book does. People are surname plus title (王 先生, 李 小姐): given names
 can't be built from taught characters.
 
 **Wrong options are written, not sampled — and that is the whole point of a gap.** Pick three

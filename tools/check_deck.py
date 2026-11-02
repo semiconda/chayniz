@@ -333,17 +333,18 @@ FINAL_PUNCTUATION = "。？！"
 TOKEN_SPLIT = re.compile(r"[ \t\r\n\f\v　]+")
 APOSTROPHES = "'’"
 NUMERAL_DIGITS = "零一二三四五六七八九"
-NUMERAL_CHARS = set(NUMERAL_DIGITS + "十百千萬")
-NUMERAL_UNITS = ((10000, "萬"), (1000, "千"), (100, "百"), (10, "十"), (1, ""))
-MAX_NUMERAL = 99999
-_numerals = {}
+# 兩 is how Taiwan says "two" in front of 百, 千, 萬 and 億 (兩千, 一萬兩千); the book writes it so.
+NUMERAL_CHARS = set(NUMERAL_DIGITS + "兩十百千萬億")
+SMALL_UNITS = {"十": 10, "百": 100, "千": 1000}
+GROUP_UNITS = ((100000000, "億"), (10000, "萬"), (1, ""))
+MAX_NUMERAL = 10 ** 12 - 1   # 九千九百九十九億…: past anything a first-year book asks for
 
 
-def render_numeral(n):
-    """The standard written form of 1..99,999: 十五, 一百一十, 一千零五, 一萬零五百."""
+def render_group(n, leading):
+    """1..9,999 in standard form. 十五 only opens a number; inside one it is 一十五."""
     out = []
     started = zero_pending = False
-    for value, unit in NUMERAL_UNITS:
+    for value, unit in ((1000, "千"), (100, "百"), (10, "十"), (1, "")):
         digit = n // value % 10
         if digit == 0:
             zero_pending = started
@@ -351,7 +352,7 @@ def render_numeral(n):
         if zero_pending:
             out.append("零")
             zero_pending = False
-        if unit == "十" and digit == 1 and not started:
+        if unit == "十" and digit == 1 and not started and leading:
             out.append("十")
         else:
             out.append(NUMERAL_DIGITS[digit] + unit)
@@ -359,14 +360,61 @@ def render_numeral(n):
     return "".join(out)
 
 
+def render_numeral(n):
+    """The standard written form: 十五, 一百一十, 一千零五, 一萬零五百, 一億五千萬. A group of four
+    digits worth less than 1,000 after a non-zero one is announced by 零 (一萬零五百), as is a
+    whole group of zeros between two non-zero ones (一億零五)."""
+    out = []
+    started = gap = False
+    for value, unit in GROUP_UNITS:
+        group = n // value % 10000
+        if group == 0:
+            gap = gap or started
+            continue
+        if started and (gap or group < 1000):
+            out.append("零")
+        out.append(render_group(group, leading=not started) + unit)
+        started, gap = True, False
+    return "".join(out)
+
+
+def parse_numeral(token):
+    """The value a string of numeral characters adds up to, ignoring whether it is well formed
+    — rendering it back and comparing is what catches 十十 or 一一."""
+    total = section = digit = 0
+    for c in token:
+        if c in NUMERAL_DIGITS:
+            digit = NUMERAL_DIGITS.index(c)
+        elif c == "兩":
+            digit = 2
+        elif c in SMALL_UNITS:
+            section += (digit or 1) * SMALL_UNITS[c]
+            digit = 0
+        elif c == "萬":
+            total += (section + digit) * 10000
+            section = digit = 0
+        elif c == "億":
+            total = (total + section + digit) * 100000000
+            section = digit = 0
+    return total + section + digit
+
+
 def numeral_value(token):
-    """The value of a well-formed numeral, or None. Parse-and-rerender is done the other way
-    round: every value is rendered once and the token looked up, so a token no value renders
-    to (十十, 一一, 一十五) is not well-formed."""
-    if not _numerals:
-        for n in range(1, MAX_NUMERAL + 1):
-            _numerals[render_numeral(n)] = n
-    return _numerals.get(token)
+    """The value of a well-formed numeral, or None. Well formed means it is exactly the
+    standard form of its own value, except that a 二 directly before 百, 千, 萬 or 億 may be
+    written 兩 — so 兩千 and 二千 both pass, 兩十 and 十十 do not."""
+    n = parse_numeral(token)
+    if not 1 <= n <= MAX_NUMERAL:
+        return None
+    standard = render_numeral(n)
+    if token == standard:
+        return n
+    if len(token) != len(standard):
+        return None
+    for got, want, after in zip(token, standard, standard[1:] + " "):
+        if got != want and not (got == "兩" and want == "二" and after in "百千萬億"):
+            return None
+    return n
 
 
 def split_tokens(text):
@@ -424,7 +472,7 @@ class Vocabulary:
         if all(c in NUMERAL_CHARS for c in token):
             if numeral_value(token) is None:
                 return None, ("%s is not a well-formed numeral: numbers are written in standard "
-                              "form between 1 and 99,999 (十五, 一百一十, 一千零五)" % token)
+                              "form (十五, 一百一十, 一千零五, 兩千, 一億五千萬)" % token)
             untaught = [c for c in dict.fromkeys(token) if c not in self.taught]
             if untaught:
                 return None, ("numeral %s uses %s, which is not taught by %s or an earlier "

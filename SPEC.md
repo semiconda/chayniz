@@ -430,9 +430,11 @@ pinyin (compared without spaces and apostrophes, ignoring case). Consequences, a
 - Words the decks deliberately dropped (好久不見, 電視機) cannot appear in sentences.
 - **Names:** a person is referred to by surname plus title (王先生, 李小姐), written as two tokens. Given names are
   not used: almost none can be built from taught characters.
-- **Numbers** are the one exception to "a token is a deck row": a token made only of 零一二三四五六七八九十百千萬
-  that is a well-formed numeral between 1 and 99,999 in standard form (the validator parses it to a value and
-  re-renders it; 十十 and 一一 fail), using only digits already taught. 兩 is an ordinary deck word.
+- **Numbers** are the one exception to "a token is a deck row": a token made only of 零一二三四五六七八九兩十百千萬億
+  that is a well-formed numeral below a trillion in standard form (the validator parses it to a value and
+  re-renders it; 十十, 一一 and 一十五 fail), using only digits already taught. A 二 directly before 百, 千, 萬 or
+  億 may be written 兩 — 兩千, 一萬兩千, 兩千萬 — as Taiwan says it and the book prints it; 兩十 fails. 兩 on its
+  own is an ordinary deck word.
 
 **Validation** (`tools/check_deck.py`, extended — same ERROR/WARN/NOTE conventions):
 
