@@ -191,7 +191,7 @@ live site, so **nothing that the current app can't load goes into `manifest.json
    hand-loaded CSV has no sentences.
    *Done:* a fixture sentence file `lesson01.sentences.csv` (3 sentences, kept on a local branch — not merged)
    makes the start screen report 3 sentences; deselecting lesson 1 drops it to 0.
-3. **Two new toggles.** Writing (in *How*) and Sentences (in *What*), both off by default, with the effective
+3. **Two new toggles.** Writing (in *How*) and Sentences (in *What*), both on by default, with the effective
    conditions, greying, Start rule, note text and per-kind counts from the spec's *Start-screen controls*.
    Practice mode hides both.
    *Done:* a table of toggle combinations, predicted before clicking — at least: Writing alone; Writing with

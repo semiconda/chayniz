@@ -318,8 +318,8 @@ way to practise", shown only when no kind runs. The start-screen count reports e
   beginner practises word order before reading a single character.
 - Sentences ignore Reading/Hearing: the prompt is always English text, and there is no sentence audio in v2 (see
   Known limitations: 我 has no recording, so almost no sentence could be played).
-- Writing and Sentences start **off**, unlike the v1 toggles. Writing is slow next to a tap, and both are new;
-  turning them on is a deliberate choice. (Toggle state is still not persisted.)
+- Writing and Sentences start **on**, like the v1 toggles: the learner chose a mixed session by default over
+  having to discover them. (Toggle state is still not persisted.)
 - Practice mode hides Writing (with the rest of the How block) and also hides Sentences, which sits in the What
   block that practice otherwise keeps.
 
