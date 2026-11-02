@@ -271,10 +271,9 @@ none may also be a correct translation of the English.
 order is genuinely free must list its alternatives in `also`, or a right answer gets marked
 wrong. Don't list orders a native speaker wouldn't say.
 
-**Read the English as an English speaker would.** "Is Mrs. Wang hot?" is a fine 熱嗎 question in
-Chinese and a remark about her looks in English, so it doesn't belong in the deck. Avoid sentences
-whose English carries a second meaning, and sentences that comment on a person's looks
-(好看, 美 about people). Weather, things and places take 熱/冷/好看 without that problem.
+**Never "hot" about a person.** "Is Mrs. Wang hot?" is a fine 熱嗎 question in Chinese, but in
+English "hot" said of a person has a connotation the learner doesn't want in the deck. Use 熱 for
+weather, places and things only. ("Is she cold?" and "very pretty" are fine.)
 
 **Write sentences new; don't copy the book's.** Its dialogues are copyrighted and this repository
 is public. Take the *patterns* from each lesson's SYNTAX PRACTICE section and write new
