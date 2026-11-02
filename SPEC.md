@@ -500,8 +500,8 @@ Each is predictable by hand, before running anything:
    the word; the same sentence moved to lesson 3 passes.
 
 **Observed (2026-11-02, Chrome headless, strokes drawn by dispatching mouse events along the character data's
-medians):** test 1 not yet run — it needs a phone and a finger, so `WRITE_LENIENCY` is still the library default
-1.0; tracing 你 and 謝謝 gave *Clean*, and 大 with its 一 drawn backwards and its 丿 drawn first gave *2 mistakes*,
+medians):** test 1 was checked by the learner on their phone (2026-11-03), who found the grading right at the library default,
+so `WRITE_LENIENCY` stays 1.0 — the case-by-case results weren't recorded; tracing 你 and 謝謝 gave *Clean*, and 大 with its 一 drawn backwards and its 丿 drawn first gave *2 mistakes*,
 as the "rejected at any tolerance" cases predict. Test 2: 200 deals of a 3-word sentence showed the accepted order
 0 times and each of the other 5 (36–48 times each); with an alternative listed, both orders were accepted and
 neither was dealt in 100. Test 3: with pinyin only, the two *tā* tiles of 她是他的太太 were interchangeable. Test 4:

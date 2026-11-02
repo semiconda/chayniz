@@ -142,10 +142,10 @@ Learning Taiwanese Mandarin from zero. The app is for:
 
 ## Open items
 
-- **v2 still open:** `WRITE_LENIENCY` is the library default 1.0 until the user runs SPEC.md test 1 on a
-  phone (plan task 8 — needs a finger, can't be done headless). Sentences for lessons 1-6 (73) are live and
-  were reviewed by a separate session (fixes applied: three missing word orders, 東西 → `dōngxi`); they count as
-  done only once the user has read them (plan task 10). The book prints both 姐姐 / 姊姊 for
+- **v2 is complete (2026-11-03).** The user checked writing on their phone and kept `WRITE_LENIENCY` at the
+  library default 1.0 (plan task 8), and read the 73 sentences of lessons 1-6 (plan task 10), which a separate
+  session had reviewed first (fixes: three missing word orders, 東西 → `dōngxi`). Their only change: no
+  sentence calling a person "hot" — the rule is in the authoring guide. The book prints both 姐姐 / 姊姊 for
   "older sister" (PDF p.125); the deck keeps the first.
 - **Headless testing of v2:** Chrome headless with `--virtual-time-budget` barely fires `requestAnimationFrame`,
   so Hanzi Writer animations never finish there; shim rAF with `setTimeout(16)` in a scratch copy to test them.
