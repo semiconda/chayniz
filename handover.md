@@ -143,8 +143,10 @@ Learning Taiwanese Mandarin from zero. The app is for:
 ## Open items
 
 - **v2 still open:** `WRITE_LENIENCY` is the library default 1.0 until the user runs SPEC.md test 1 on a
-  phone (plan task 8 — needs a finger, can't be done headless). Sentence content for lessons 1-6 needs the
-  independent review and then the user's read (plan task 10) before it counts as done.
+  phone (plan task 8 — needs a finger, can't be done headless). Sentences for lessons 1-6 (73) are live and
+  were reviewed by a separate session (fixes applied: three missing word orders, 東西 → `dōngxi`); they count as
+  done only once the user has read them (plan task 10). Unverified against the book: whether it prints 姐姐 or
+  the Taiwan-standard 姊姊 (lesson 5 deck).
 - **Headless testing of v2:** Chrome headless with `--virtual-time-budget` barely fires `requestAnimationFrame`,
   so Hanzi Writer animations never finish there; shim rAF with `setTimeout(16)` in a scratch copy to test them.
   Strokes can be "drawn" by dispatching mouse events along the character data's `medians`, mapped through the

@@ -137,16 +137,16 @@ Needs `pip install pypdf pymupdf`. Write slices and images to a scratch director
 numbered entries *and their sub-entries* (indented words under an example sentence are vocabulary
 too), continue through SUPPLEMENTARY VOCABULARY, and stop where SYNTAX PRACTICE begins.
 
-| lesson | printed pages | PDF pages |
-|---|---|---|
-| 1 | 6-10 | 46-50 |
-| 2 | 24-28 | 64-68 |
-| 3 | 38-42 | 78-82 |
-| 4 | 58-63 | 98-103 |
-| 5 | 83-87 | 123-127 |
-| 6 | 101-105 | 141-145 |
+| lesson | vocabulary, printed | vocabulary, PDF | SYNTAX PRACTICE, PDF |
+|---|---|---|---|
+| 1 | 6-10 | 46-50 | 50-55 |
+| 2 | 24-28 | 64-68 | 68-70 |
+| 3 | 38-42 | 78-82 | 83-87 |
+| 4 | 58-63 | 98-103 | 104-111 |
+| 5 | 83-87 | 123-127 | 128-132 |
+| 6 | 101-105 | 141-145 | 146-151 |
 
-For a lesson not in the table, find its VOCABULARY pages by rendering a few pages after the
+For a lesson not in the table, find its VOCABULARY and SYNTAX PRACTICE pages by rendering a few pages after the
 previous lesson's range, then add the row here so the next session doesn't have to search.
 
 Three traps specific to this book:

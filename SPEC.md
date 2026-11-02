@@ -494,6 +494,16 @@ Each is predictable by hand, before running anything:
 5. **Vocabulary rule.** A lesson-1 sentence using a lesson-3 word fails `check_deck.py --all` with an ERROR naming
    the word; the same sentence moved to lesson 3 passes.
 
+**Observed (2026-11-02, Chrome headless, strokes drawn by dispatching mouse events along the character data's
+medians):** test 1 not yet run — it needs a phone and a finger, so `WRITE_LENIENCY` is still the library default
+1.0; tracing 你 and 謝謝 gave *Clean*, and 大 with its 一 drawn backwards and its 丿 drawn first gave *2 mistakes*,
+as the "rejected at any tolerance" cases predict. Test 2: 200 deals of a 3-word sentence showed the accepted order
+0 times and each of the other 5 (36–48 times each); with an alternative listed, both orders were accepted and
+neither was dealt in 100. Test 3: with pinyin only, the two *tā* tiles of 她是他的太太 were interchangeable. Test 4:
+{書, 報, 筆, 車} in 20 of 20 showings, reading {shū, bào, bǐ, chē} with pinyin only. Test 5: passes, as a validator
+fixture. Over the real lessons: all 73 sentences and 98 gaps load, and in 4,000 deals each with characters and with
+pinyin only, no deal matched an accepted order.
+
 ## Known limitations (intentional for v1)
 
 - **v2: no sentence audio.** A sentence is playable only if every syllable has a recording, and `wo3` (我) and
