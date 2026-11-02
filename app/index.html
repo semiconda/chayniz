@@ -685,7 +685,8 @@
   }
   .sentence-line.right { border: 1px solid var(--good); }
   .sentence-line.wrong { border: 1px solid var(--bad); }
-  .sentence-line .end { font-size: 1.35rem; align-self: flex-end; }
+  .end { font-size: 1.35rem; }
+  .tail { display: inline-flex; align-items: flex-end; gap: 2px; }
   /* Fixed width whatever the answer's length, so a two-character answer isn't given away. */
   .blank {
     display: inline-block;
@@ -2356,16 +2357,30 @@
     return digits.every(Boolean) ? digits.join("") : "";
   }
 
+  // The final 。？！ travels with the last word, so a full line never wraps it onto a line
+  // of its own.
+  function appendEnd(line, mark) {
+    if (!mark) return;
+    const end = document.createElement("span");
+    end.className = "end";
+    end.textContent = mark;
+    const last = line.lastElementChild;
+    if (!last) {
+      line.appendChild(end);
+      return;
+    }
+    const tail = document.createElement("span");
+    tail.className = "tail";
+    line.replaceChild(tail, last);
+    tail.appendChild(last);
+    tail.appendChild(end);
+  }
+
   function facesRow(sentence, tokens) {
     const row = document.createElement("div");
     row.className = "faces";
     tokens.forEach(t => row.appendChild(wordFace(t, sentencePinyin(sentence, t))));
-    if (sentence.end) {
-      const end = document.createElement("span");
-      end.className = "end";
-      end.textContent = sentence.end;
-      row.appendChild(end);
-    }
+    appendEnd(row, sentence.end);
     return row;
   }
 
@@ -2409,12 +2424,7 @@
     function draw() {
       sentenceLine.textContent = "";
       placed.forEach(i => sentenceLine.appendChild(tile(i)));
-      if (s.end) {
-        const end = document.createElement("span");
-        end.className = "end";
-        end.textContent = s.end;
-        sentenceLine.appendChild(end);
-      }
+      appendEnd(sentenceLine, s.end);
       tileBank.textContent = "";
       deal.filter(i => placed.indexOf(i) < 0).forEach(i => tileBank.appendChild(tile(i)));
       checkBtn.disabled = placed.length < s.tokens.length;
@@ -2462,12 +2472,7 @@
         sentenceLine.appendChild(wordFace(t, s.pinyin[i]));
       }
     });
-    if (s.end) {
-      const end = document.createElement("span");
-      end.className = "end";
-      end.textContent = s.end;
-      sentenceLine.appendChild(end);
-    }
+    appendEnd(sentenceLine, s.end);
     sentenceLine.classList.remove("hidden");
     q.options.forEach(value => addOption(value, wordFace(value, sentencePinyin(s, value)), q));
   }

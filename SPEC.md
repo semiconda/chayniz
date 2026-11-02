@@ -506,8 +506,11 @@ as the "rejected at any tolerance" cases predict. Test 2: 200 deals of a 3-word 
 0 times and each of the other 5 (36–48 times each); with an alternative listed, both orders were accepted and
 neither was dealt in 100. Test 3: with pinyin only, the two *tā* tiles of 她是他的太太 were interchangeable. Test 4:
 {書, 報, 筆, 車} in 20 of 20 showings, reading {shū, bào, bǐ, chē} with pinyin only. Test 5: passes, as a validator
-fixture. Over the real lessons: all 73 sentences and 98 gaps load, and in 4,000 deals each with characters and with
-pinyin only, no deal matched an accepted order.
+fixture. Over the real lessons: all 73 sentences and 98 gaps load, and over 4,000 questions each with characters and
+with pinyin only (every order question among them checked), no deal matched an accepted order. Measured the same
+day over 20,000 v1 word questions: the same (word, direction) came up again 18,464 times and never repeated its
+previous wrong-option set; the first 179 questions were 179 different words; all 6,776 character-answer
+questions had four options of the answer's length.
 
 ## Known limitations (intentional for v1)
 

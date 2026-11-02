@@ -276,6 +276,8 @@ Full reasoning, scope and the checkable test: [`SPEC.md`](SPEC.md) and [`PLAN.md
 ## Repository layout
 
 ```
+index.html          the project page (the course report), served at the repository's root address
+assets/             its screenshots and GIFs
 app/
   index.html        the entire app
   decks/            lesson CSVs, their .sentences.csv, manifest.json, authoring guide

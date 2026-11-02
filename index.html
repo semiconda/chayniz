@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chayniz</title>
+<meta name="description" content="A phone-sized drill app for learning Taiwanese Mandarin from zero: characters, pinyin, listening, writing and sentences.">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #11151c;
+    --panel: #1b212c;
+    --raised: #232b38;
+    --text: #e8ecf1;
+    --muted: #8893a3;
+    --accent: #4f8cff;
+    --good: #2fbf71;
+    --border: #2a3140;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 17px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  main { max-width: 780px; margin: 0 auto; padding: 0 16px 64px; }
+  a { color: var(--accent); }
+  a:hover { text-decoration-thickness: 2px; }
+  h1, h2, h3 { line-height: 1.25; }
+  h2 {
+    font-size: 1.45rem;
+    margin: 56px 0 12px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+  h3 { font-size: 1.1rem; margin: 28px 0 6px; }
+  p, li { color: #d3d9e1; }
+  .muted { color: var(--muted); }
+  .zh { font-size: 1.05em; }
+
+  header { padding: 56px 0 8px; }
+  .kicker {
+    color: var(--muted);
+    font-size: 0.8rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin: 0 0 12px;
+  }
+  h1 { font-size: clamp(2.4rem, 8vw, 3.4rem); margin: 0; letter-spacing: -0.01em; }
+  .lede { font-size: 1.2rem; color: var(--text); margin: 12px 0 8px; max-width: 34em; }
+  .byline { color: var(--muted); margin: 0 0 24px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; }
+  .btn {
+    display: inline-block;
+    padding: 12px 20px;
+    border-radius: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    border: 1px solid var(--border);
+    background: var(--raised);
+    color: var(--text);
+  }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* Phone screenshots: side by side where there is room, stacked where there isn't. */
+  .shots {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+    margin: 24px 0 8px;
+  }
+  .shots.two { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  figure { margin: 0; }
+  figure img {
+    display: block;
+    width: 100%;
+    max-width: 300px;
+    margin: 0 auto;
+    border-radius: 18px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+  }
+  figcaption { color: var(--muted); font-size: 0.9rem; margin-top: 10px; text-align: center; }
+
+  .kinds { display: grid; gap: 12px; margin: 16px 0; padding: 0; list-style: none; }
+  .kinds li {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 16px;
+  }
+  .kinds b { color: var(--text); }
+
+  .table-wrap { overflow-x: auto; margin: 16px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+  th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; font-size: 0.85rem; }
+  td.num { white-space: nowrap; }
+  td.ok { color: var(--good); white-space: nowrap; }
+  td.pending { color: var(--muted); white-space: nowrap; }
+  /* On a phone, four columns leave the check one word wide: each row becomes a small card. */
+  @media (max-width: 600px) {
+    thead { display: none; }
+    table, tbody, tr, td { display: block; }
+    tr { padding: 12px 0; border-bottom: 1px solid var(--border); }
+    td { border: 0; padding: 2px 0; white-space: normal !important; }
+    td:first-child { color: var(--text); font-weight: 600; margin-bottom: 4px; }
+    td[data-label]::before { content: attr(data-label) " "; color: var(--muted); }
+    td.ok, td.pending { display: none; }
+  }
+
+  .steps { counter-reset: step; list-style: none; padding: 0; }
+  .steps li { counter-increment: step; position: relative; padding-left: 40px; margin: 14px 0; }
+  .steps li::before {
+    content: counter(step);
+    position: absolute; left: 0; top: 1px;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--raised); border: 1px solid var(--border);
+    color: var(--text); font-size: 0.85rem; font-weight: 600;
+    display: grid; place-items: center;
+  }
+  code { background: var(--raised); padding: 1px 6px; border-radius: 6px; font-size: 0.9em; }
+  footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--border); margin-top: 56px; padding-top: 20px; }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <p class="kicker">Workshop 1 · Project 1 — a web app</p>
+  <h1>Chayniz</h1>
+  <p class="lede">A drill app for learning Taiwanese Mandarin from zero: characters, pinyin, listening,
+    writing and sentences, in quizzes short enough for a spare five minutes on a phone.</p>
+  <p class="byline">By semiconda · TIGP Basic Skills for Experimentalists, 2026</p>
+  <div class="actions">
+    <a class="btn primary" href="app/">Open the app</a>
+    <a class="btn" href="https://github.com/semiconda/chayniz">Code on GitHub</a>
+  </div>
+</header>
+
+<div class="shots">
+  <figure>
+    <img src="assets/start.png" alt="The start screen: a Test/Practice switch, six lesson chips, and toggles for Reading, Hearing, Writing, Pinyin, Characters and Sentences." loading="lazy">
+    <figcaption>Pick lessons and what to drill</figcaption>
+  </figure>
+  <figure>
+    <img src="assets/word.png" alt="A word question: the characters 老師 with four English options; 'teacher' is marked correct." loading="lazy">
+    <figcaption>A word question, answered</figcaption>
+  </figure>
+</div>
+
+<h2>What it is, and why</h2>
+<p>I'm learning Taiwanese Mandarin from zero at NTU, from the textbook
+  <span class="zh">新版實用視聽華語</span> (<i>Practical Audio-Visual Chinese</i>), vol. 1. I wanted one place
+  to drill what the course asks for: recognising and recalling characters, translating both ways,
+  hearing a word and knowing it — and pinyin, including the parts that trip up a European speaker
+  because they don't sound the way they look (<i>yu</i> is always the ü sound; <i>iu</i> is short for
+  <i>iou</i>). And in sessions short enough for a spare five minutes, not long study blocks.</p>
+<p>The interesting part is that a language drill can be <em>wrong</em> in ways that are invisible
+  to a beginner — which is exactly who uses it. A wrong tone mark, a simplified character, a recording
+  with a mainland accent, a multiple-choice question whose answer can be spotted by its length: the
+  learner can't catch any of these, and drills the mistake. So most of this project is about making the
+  content checkably right, not about the screens.</p>
+<p class="muted">The name is spelled so an English speaker says it right on sight — unlike pinyin
+  <i>yu</i>, which almost everyone reads as English "you".</p>
+
+<h2>What it does</h2>
+<p>Two modes. <b>Test</b> is the quiz; <b>Practice</b> lists the selected lessons as a vocabulary table,
+  every row tappable to hear it, with a pencil button that shows how each character is written. Test mixes
+  four kinds of question, each picked about equally often:</p>
+<ul class="kinds">
+  <li><b>Word</b> — multiple choice between character, pinyin and English, in eight directions, including
+    two by ear: hear a word, pick its pinyin or characters.</li>
+  <li><b>Write</b> — see the meaning and pinyin, draw the word with a finger, stroke by stroke, with no
+    outline to trace. A stroke in the wrong order or direction is refused and counted.</li>
+  <li><b>Order</b> — the English sentence, and its Chinese words as shuffled tiles to tap into place. This
+    is where grammar gets practised: knowing every word of a sentence is not knowing where 很 goes.</li>
+  <li><b>Gap</b> — the sentence with one word missing, and four options that all fit the grammar of the
+    slot, so only the meaning of the English decides.</li>
+</ul>
+
+<div class="shots two">
+  <figure>
+    <img src="assets/write.gif" alt="Animation: the word 先生 written stroke by stroke in a dashed square, ending with 'Clean'." loading="lazy">
+    <figcaption>Writing 先生 “Mr.”, stroke by stroke</figcaption>
+  </figure>
+  <figure>
+    <img src="assets/order.gif" alt="Animation: tiles 這 是 誰 的 狗 tapped into a line for 'Whose dog is this?', then checked correct." loading="lazy">
+    <figcaption>Putting “Whose dog is this?” in order</figcaption>
+  </figure>
+</div>
+<div class="shots">
+  <figure>
+    <img src="assets/gap.png" alt="A gap question: 'I want three books.' with the measure word blank; 本 is picked from 本, 位, 杯, 枝." loading="lazy">
+    <figcaption>A gap on a measure word</figcaption>
+  </figure>
+  <figure>
+    <img src="assets/practice.png" alt="Practice mode: a vocabulary table of lesson 1 with play and pencil buttons per row." loading="lazy">
+    <figcaption>Practice: the lessons as a table</figcaption>
+  </figure>
+  <figure>
+    <img src="assets/sheet.png" alt="The stroke sheet for 謝謝: the character being drawn, its radical 言 in blue, and its parts 言 (meaning) and 射 (sound)." loading="lazy">
+    <figcaption>How 謝 is written, and what it's made of</figcaption>
+  </figure>
+</div>
+
+<h2>How it works</h2>
+
+<h3>One static page</h3>
+<p>The whole app is <code>app/index.html</code>: no backend, no build step, no framework, nothing fetched
+  from a third-party server. Lessons are CSV files, one per textbook lesson, loaded and merged when the page
+  opens. Nothing is saved — deliberately. Progress tracking was designed and then cut: the only storage a
+  static page has is the browser's, which iOS wipes for sites you haven't opened in a week. A review
+  schedule built on that would silently lose your history, which is worse than not pretending to have one.</p>
+
+<h3>Questions are generated, not stored</h3>
+<p>A lesson file holds only facts: characters, pinyin, meaning. Every question and every wrong option is
+  built when it's shown, under rules that each close a way to answer without knowing Chinese:</p>
+<ul>
+  <li>Wrong options have the <b>same length</b> as the answer — a two-character answer among one-character
+    options gives itself away.</li>
+  <li><b>Homophones</b> (他 and 她 are both <i>tā</i>) are both kept, since telling them apart is worth
+    drilling, but never offered together when the question is asked by sound.</li>
+  <li>The same word asked the same way <b>never repeats its wrong options</b> back to back, so you learn
+    the word rather than the shape of the question.</li>
+  <li>Every word comes up <b>once before any repeats</b>.</li>
+</ul>
+
+<h3>Real Taiwanese recordings</h3>
+<p>The audio is Taiwan's Ministry of Education dictionary recordings — real human speech at the ROC
+  standard, not text-to-speech, which has no Taiwanese voice. There is one file per syllable, and a word
+  plays its syllables in sequence. Each file is a nine-second dictionary entry whose licence forbids
+  cutting it, so the files are never trimmed: the app decodes each one, finds where the spoken syllable
+  starts and stops, and plays only that span with short fades.</p>
+
+<h3>Writing</h3>
+<p>Characters are vector outlines from <a href="https://hanziwriter.org/">Hanzi Writer</a>, stored in the
+  repository so the app keeps working without anyone else's server. Its quiz mode grades each stroke the
+  learner draws against the next expected one — order, direction, start and end — with the outline hidden,
+  so it is recall and not tracing.</p>
+
+<h3>Content that a program checks</h3>
+<p>Lessons come from the textbook; the sentences were written new for the app (the book's dialogues are
+  copyrighted, and this repository is public), using each lesson's grammar patterns. A validator,
+  <code>tools/check_deck.py</code>, checks what a beginner can't: traditional characters only, tone marks
+  in citation form, every sentence word already taught in that lesson or an earlier one, its pinyin
+  identical to the vocabulary list, and gap options that don't create a second right answer. It runs on
+  every commit and on GitHub, and is itself tested against 35 deliberately broken files, one per rule.</p>
+
+<h2>How it was built</h2>
+<p>With Claude Code, following the course's AI method — and the review steps caught real mistakes every
+  time.</p>
+<ol class="steps">
+  <li><b>Vision</b> — what I needed: short sessions on a phone, Taiwanese not mainland, nothing to set up.</li>
+  <li><b>Specification and plan</b> — <code>SPEC.md</code> and <code>PLAN.md</code>, each task with a test
+    that says what “done” means.</li>
+  <li><b>Independent review</b> — a fresh Claude session that hadn't written the plan, asked only for
+    flaws. On the writing/sentences plan it found 14, among them a calibration test that could not
+    actually choose the grading tolerance, and example sentences that broke their own vocabulary rule.
+    A second review read the 73 generated sentences as a native speaker would and found word orders that
+    would have marked right answers wrong.</li>
+  <li><b>Code</b> — task by task, with independent pieces built in parallel by subagents (the validator
+    alongside the app; the six lessons' sentences at once), each commit saying why.</li>
+  <li><b>Test and verify</b> — below, and on my phone.</li>
+</ol>
+
+<h2>What was verified</h2>
+<p>Each check was predicted before running anything, then measured in the real app (headless Chrome
+  driving the page, strokes drawn by replaying each stroke's path as mouse movements).</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Check</th><th>Predicted</th><th>Measured</th><th></th></tr></thead>
+  <tbody>
+    <tr><td>Same word, same direction, shown again: wrong options identical to last time</td>
+      <td class="num" data-label="Predicted:">0</td><td class="num" data-label="Measured:">0 in 18,464 repeat showings (20,000 questions)</td><td class="ok">✓</td></tr>
+    <tr><td>Every word asked once before any repeats</td>
+      <td class="num" data-label="Predicted:">179 different</td><td class="num" data-label="Measured:">first 179 questions: 179 different words</td><td class="ok">✓</td></tr>
+    <tr><td>Character answers whose four options all have the answer's length</td>
+      <td class="num" data-label="Predicted:">all</td><td class="num" data-label="Measured:">6,776 of 6,776</td><td class="ok">✓</td></tr>
+    <tr><td>Word order: tiles dealt already in a correct order</td>
+      <td class="num" data-label="Predicted:">0</td><td class="num" data-label="Measured:">0 in 200 deals of one sentence; 0 in every deal over 8,000 questions drawing on all 73 sentences, with characters and with pinyin only</td><td class="ok">✓</td></tr>
+    <tr><td>Share of each question kind, all on</td>
+      <td class="num" data-label="Predicted:">⅓ each</td><td class="num" data-label="Measured:">word 106 · write 99 · sentence 95 of 300</td><td class="ok">✓</td></tr>
+    <tr><td>Gap options are exactly the four written for it</td>
+      <td class="num" data-label="Predicted:">20 of 20</td><td class="num" data-label="Measured:">20 of 20</td><td class="ok">✓</td></tr>
+    <tr><td>Writing a word stroke by stroke, correctly</td>
+      <td class="num" data-label="Predicted:">“Clean”</td><td class="num" data-label="Measured:">“Clean” for 你, 先生, 美國, 你們, 謝謝</td><td class="ok">✓</td></tr>
+    <tr><td>大 with its first stroke backwards and its second drawn first</td>
+      <td class="num" data-label="Predicted:">2 mistakes</td><td class="num" data-label="Measured:">“2 mistakes”</td><td class="ok">✓</td></tr>
+    <tr><td>Validator: each broken file caught by its own rule, valid ones pass</td>
+      <td class="num" data-label="Predicted:">35 of 35</td><td class="num" data-label="Measured:">35 of 35</td><td class="ok">✓</td></tr>
+    <tr><td>Grading tolerance chosen by drawing deliberate near-misses on a phone</td>
+      <td class="num" data-label="Predicted:">—</td><td class="num" data-label="Measured:">to do: needs a finger</td><td class="pending">…</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Limits, and what's next</h2>
+<ul>
+  <li>Nothing is saved between sessions, by design (above) — until there's real storage, there's no
+    spaced repetition.</li>
+  <li>16 syllables were never recorded by the Ministry, including <span class="zh">我</span> <i>wǒ</i>, so a
+    few words are reading-only; and whole sentences have no audio, since syllables read in isolation
+    aren't speech.</li>
+  <li>Lessons 1–6 are in; 7–12 follow the course.</li>
+</ul>
+
+<footer>
+  <p>Audio: Ministry of Education (R.O.C.), 《國語辭典簡編本》, CC BY-ND 3.0 TW. Stroke order:
+    Hanzi Writer (MIT), outlines under the Arphic Public License, components from Make Me a Hanzi (LGPL v3).
+    Full notices in the repository.</p>
+  <p><a href="app/">Open the app</a> · <a href="https://github.com/semiconda/chayniz">Code</a> · by semiconda</p>
+</footer>
+
+</main>
+</body>
+</html>
