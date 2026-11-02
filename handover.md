@@ -8,7 +8,7 @@ memory is used here, deliberately, so that any fresh session or device can pick 
 asked for it to be updated in parallel with the code. Whenever a change alters what the app does, how lessons are
 added, or how validation works, update `README.md` in the same commit — alongside `SPEC.md`/`PLAN.md`.
 
-## Current state (2026-11-01)
+## Current state (2026-11-02)
 
 - **Live, tested on a phone including audio:** https://semiconda.github.io/chayniz/app/
 - **`app/index.html` is the whole app**: one file, no build step, no backend, no dependencies. Three screens:
@@ -25,6 +25,12 @@ added, or how validation works, update `README.md` in the same commit — alongs
   two listening ones (audio → pinyin, audio → character), plus audio → meaning. Four start-screen toggles
   (Reading / Hearing / Pinyin / Characters) select which are used; the character/pinyin asymmetry is deliberate
   and documented in `SPEC.md`.
+- **v2 (2026-11-02): three more question kinds in test mode** — *Write* (draw the word; Hanzi Writer's quiz,
+  outline hidden), *Order* (tap shuffled word tiles into a sentence) and *Gap* (pick the missing word). Toggles
+  Writing and Sentences, both on by default (the user's choice). A kind is picked first, uniformly among those
+  that can run. Sentences live in `app/decks/lessonNN.sentences.csv`, attached to the lesson of the same stem;
+  `tools/check_deck.py` validates them (34 fixtures in `tools/fixtures/sentences/`, run by `--fixtures` and in
+  CI). Spec and plan: the v2 sections of `SPEC.md` and `PLAN.md`; status of each plan task is in Open items.
 - **Audio works**, from real MOE recordings — see the decision list below.
 - **Practice rows have a pencil button** that opens a writing sheet: the stroke-order animation, the stroke
   count, and what the character is made of — components with pinyin and gloss, which piece carries the meaning
@@ -136,6 +142,13 @@ Learning Taiwanese Mandarin from zero. The app is for:
 
 ## Open items
 
+- **v2 still open:** `WRITE_LENIENCY` is the library default 1.0 until the user runs SPEC.md test 1 on a
+  phone (plan task 8 — needs a finger, can't be done headless). Sentence content for lessons 1-6 needs the
+  independent review and then the user's read (plan task 10) before it counts as done.
+- **Headless testing of v2:** Chrome headless with `--virtual-time-budget` barely fires `requestAnimationFrame`,
+  so Hanzi Writer animations never finish there; shim rAF with `setTimeout(16)` in a scratch copy to test them.
+  Strokes can be "drawn" by dispatching mouse events along the character data's `medians`, mapped through the
+  character `<g>`'s `getScreenCTM()`.
 - **Lessons 7-12.** Lessons 1-6 are done. One or two at a time, following `app/decks/README.md`; see the rhythm
   note above. Needs the textbook PDF, which is gitignored and may not be on the machine you're working from —
   on the user's Windows machine it is `~/Downloads/Practical Audio-Visual Chinese 1 2nd edition.pdf`.

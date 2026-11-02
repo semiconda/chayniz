@@ -23,14 +23,33 @@ Open the link. Lessons load automatically — there is nothing to install, sign 
 
 Pick one or more **lessons**. **Clear** / **All** beside the chips selects or deselects every lesson at once.
 
-**Four toggles** choose what a session drills:
+**Six toggles**, all on to start with, choose what a session drills:
 
 | Toggle | Effect |
 |---|---|
-| **Reading** | questions shown as text |
-| **Hearing** | questions played as audio |
-| **Pinyin** | unlocks pinyin ↔ english |
-| **Characters** | unlocks character ↔ english *and* character ↔ pinyin |
+| **Reading** | word questions shown as text |
+| **Hearing** | word questions played as audio |
+| **Writing** | draw the word yourself (needs Characters) |
+| **Pinyin** | unlocks pinyin ↔ english, and shows sentences in pinyin |
+| **Characters** | unlocks character ↔ english *and* character ↔ pinyin, and shows sentences in characters |
+| **Sentences** | the selected lessons' sentences: word order and fill-the-gap |
+
+A session mixes three kinds of question, each about equally often: **word** questions (the
+multiple choice above), **write** questions, and **sentence** questions.
+
+- **Write.** You see the meaning and the pinyin, and draw the word in the square with a finger,
+  stroke by stroke — no outline to trace. Each stroke must be the right one, drawn the right way;
+  a wrong one is refused and counted, and after three misses the stroke flashes as a hint. **Show
+  me** draws the rest. The result says *Clean*, how many mistakes, or *Shown*.
+- **Order.** The English sentence, and its words shuffled as tiles: tap them into the line, then
+  **Check**. Where Chinese allows more than one order, any accepted one counts, and you are shown
+  the other.
+- **Gap.** The English sentence and the Chinese with one word missing; pick it from four. The
+  wrong options fit the sentence's grammar, so it's the meaning — the grammar word — you are
+  being asked about.
+
+With Pinyin on and Characters off, sentences are shown in pinyin only — word order practice
+before you can read the characters.
 
 The script toggles are deliberately asymmetric. Turning on **Characters** also brings
 character↔pinyin, because reading a character aloud is a character skill. Turning on **Pinyin**
@@ -53,8 +72,8 @@ you last saw it.
 - **The pencil button** shows how the word is written — a sheet rises with the stroke-order
   animation, the stroke count, and what the character is made of. In a two-character word you
   can step between the characters without closing it.
-- The **Pinyin** and **Characters** toggles choose which columns appear. Reading/Hearing don't
-  apply here and are hidden.
+- The **Pinyin** and **Characters** toggles choose which columns appear. Reading, Hearing,
+  Writing and Sentences don't apply here and are hidden.
 - **A dimmed muted speaker** means that word has no recording — 16 syllables were never recorded,
   so a few words are reading-only.
 - **The filter box** narrows by character, pinyin or english, and ignores tone marks: typing
@@ -155,6 +174,11 @@ third-party server at runtime — the one library it uses is vendored into the r
 - **Lessons** are fetched from `app/decks/` and merged, deduplicated on `(hanzi, pinyin, meaning)`.
   The lesson chips choose which decks go into that pool — and because wrong options are drawn from
   the same pool, selecting several lessons mixes their vocabulary into each other's options too.
+- **Sentences** come from `lessonNN.sentences.csv` beside each deck, written new for the app (not
+  copied from the book) and checked by the validator to use only words already taught. A gap's
+  wrong options are written by hand, never sampled, so they fit the grammar of the slot.
+- **Writing** is graded by Hanzi Writer's quiz mode over the same vendored stroke data the
+  practice sheet animates, with the outline hidden so it is recall rather than tracing.
 - **Questions are generated at render time**, not stored. The same word gets asked different
   ways, and the three wrong options are drawn fresh each time, so you learn the word rather
   than the shape of the question.
@@ -254,7 +278,7 @@ Full reasoning, scope and the checkable test: [`SPEC.md`](SPEC.md) and [`PLAN.md
 ```
 app/
   index.html        the entire app
-  decks/            lesson CSVs + manifest.json + authoring guide
+  decks/            lesson CSVs, their .sentences.csv, manifest.json, authoring guide
   audio/            one recording per toned syllable + licence
   strokes/          vendored Hanzi Writer + stroke outlines + components + licences
 tools/

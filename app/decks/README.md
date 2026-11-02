@@ -231,6 +231,54 @@ Syllables are missing in two situations:
 Do **not** work around a missing syllable by changing the pinyin to something that does have
 audio. That would teach the learner a wrong pronunciation to satisfy a tool.
 
+## Sentences
+
+Word decks drill vocabulary; sentences are where grammar gets practised. Each lesson can have a
+sentence file next to its deck — `lesson03.sentences.csv` belongs to `lesson03.csv` — listed in
+`manifest.json` like a deck. It never becomes a chip of its own: selecting Lesson 3 selects its
+sentences. Test mode turns each sentence into two question kinds: put the shuffled words in
+order, and fill a gap from four options. The full rules are in `SPEC.md`, "Sentence data".
+
+```csv
+chinese,pinyin,english,also,gaps
+我 很 喜歡 看 書。,wǒ hěn xǐhuān kàn shū,I really like reading books.,,很=也/都/不; 書=報/筆/車
+我 要 這 本 書。,wǒ yào zhè běn shū,I want this book.,這 本 書 我 要,本=杯/塊/位
+```
+
+| column | rules |
+|---|---|
+| `chinese` | words separated by spaces — each one becomes a tile. One final 。？！ allowed, no other punctuation: split a sentence with a comma into two |
+| `pinyin` | one entry per word, **written joined** (`xǐhuān`, not `xǐ huān` — spaces separate words here), exactly the deck's pinyin for that word, lowercase except proper nouns |
+| `english` | a faithful translation; quote the field if it contains a comma |
+| `also` | other word orders that mean the same thing, separated by `\|` — or empty |
+| `gaps` | `word=wrong/wrong/wrong` entries separated by `;` |
+
+**Every word must already be taught** — in this lesson's deck or an earlier one, with the same
+pinyin. A learner must never meet a word they weren't taught. Numbers built from taught digits
+(三百五十) are the one exception. People are surname plus title (王 先生, 李 小姐): given names
+can't be built from taught characters.
+
+**Wrong options are written, not sampled — and that is the whole point of a gap.** Pick three
+words that *fit the slot grammatically*, so that only the English rules them out: blank 很
+against 也/都/不 under "I really like", and the learner has to know what 很 does. Random words
+from the deck are usually ungrammatical in the slot, which turns the question back into a
+vocabulary question. Each wrong option must be a taught word with the same character count as
+the answer and a different pinyin (homophones would look identical with only pinyin shown), and
+none may also be a correct translation of the English.
+
+**List the other orders.** 我明天去 and 明天我去 translate the same way, so a sentence whose word
+order is genuinely free must list its alternatives in `also`, or a right answer gets marked
+wrong. Don't list orders a native speaker wouldn't say.
+
+**Write sentences new; don't copy the book's.** Its dialogues are copyrighted and this repository
+is public. Take the *patterns* from each lesson's SYNTAX PRACTICE section and write new
+sentences with them — 8 to 12 per lesson.
+
+The validator checks all of the above that a machine can check: untaught words, pinyin that
+differs from the deck, punctuation, malformed gaps and orders. It cannot tell whether a sentence
+is natural Mandarin, so have each lesson's sentences read by a session that didn't write them,
+and by the learner — ideally with their teacher.
+
 ## Reference: starting a fresh Claude Code session on a lesson
 
 Paste this, filling in the lesson number and the path to the book. It deliberately says almost
@@ -247,9 +295,13 @@ deck (`app/decks/lesson01.csv`) as the worked example of the format.
 The book is at `<path to the PDF>`. It is a scan with no text layer, so pages have to be
 rendered as images and read visually; the commands are in the guide. Never commit the PDF.
 
-When you are done: add the file to `app/decks/manifest.json`, run `python tools/check_deck.py
+Then write the lesson's sentence file, `app/decks/lessonNN.sentences.csv`, as the *Sentences*
+section of the guide describes: 8-12 new sentences using that lesson's SYNTAX PRACTICE patterns
+and only words taught so far, with gaps whose wrong options fit the slot grammatically.
+
+When you are done: add both files to `app/decks/manifest.json`, run `python tools/check_deck.py
 --all` and fix every ERROR, run `python tools/fetch_strokes.py` for the stroke data, then
-commit. Tell me every judgement call you made — words you
+commit. Then have a fresh session review the sentences for naturalness before I read them. Tell me every judgement call you made — words you
 skipped, glosses you rewrote, anything you changed in an older deck — and why. Those are
 decisions about my study material, so I want to see them rather than have them buried.
 
@@ -295,6 +347,14 @@ Rules:
 Material:
 
 <paste the lesson text here>
+
+---
+
+For sentences in a plain chat, ask for the format in the *Sentences* section above, paste the
+vocabulary of this lesson **and every earlier one** (the model can't know what's been taught
+otherwise), and stress: one space between words, pinyin joined per word and copied from the
+vocabulary, no commas inside a sentence, an English field with a comma wrapped in double quotes,
+and wrong gap options that fit the slot grammatically. Expect the validator to find mistakes.
 
 ---
 
