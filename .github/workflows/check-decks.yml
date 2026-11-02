@@ -8,6 +8,7 @@ on:
       - "app/decks/**"
       - "app/audio/index.json"
       - "tools/check_deck.py"
+      - "tools/fixtures/**"
       - ".github/workflows/check-decks.yml"
   pull_request:
     paths:
@@ -24,3 +25,7 @@ jobs:
           python-version: "3.11"
       - name: Validate every deck and the manifest
         run: python tools/check_deck.py --all
+      # One small deck per rule, each broken in exactly that way: proves the validator still
+      # catches what it claims to whenever it is changed.
+      - name: Check the validator against its fixtures
+        run: python tools/check_deck.py --fixtures
