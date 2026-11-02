@@ -1181,6 +1181,9 @@
 
     const decks = [];
     for (const name of deckFiles) {
+      // Sentence files belong to a lesson rather than being one; until they are loaded as such,
+      // they must never surface as a chip of their own.
+      if (/\.sentences\.csv$/i.test(name)) continue;
       const res = await fetch("decks/" + name, { cache: "no-store" });
       if (!res.ok) continue;
       const parsed = rowsToItems(parseCSV(await res.text()));
