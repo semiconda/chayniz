@@ -817,6 +817,7 @@
       <div id="write-target" class="stroke-grid write-grid" role="img" aria-label="Drawing square"></div>
       <div class="write-actions">
         <button id="write-show" type="button" class="secondary-btn">Show me</button>
+        <button id="write-next" type="button" class="secondary-btn hidden">Next character →</button>
       </div>
       <div id="write-result" class="status write-result"></div>
     </div>
@@ -1317,6 +1318,7 @@
   const writeDone = document.getElementById("write-done");
   const writeTarget = document.getElementById("write-target");
   const writeShow = document.getElementById("write-show");
+  const writeNext = document.getElementById("write-next");
   const writeResult = document.getElementById("write-result");
 
   let quiz = null;
@@ -2280,11 +2282,13 @@
   }
 
   function playCurrent() {
-    if (!currentQuestion || !currentQuestion.audioFiles) return;
-    replayBtn.textContent = currentQuestion.kind === "write" ? "\u{1F50A} Hear it" : "Play again";
-    player.playSequence(currentQuestion.audioFiles, reason => {
+    const q = currentQuestion;
+    if (!q || !q.audioFiles) return;
+    replayBtn.textContent = q.kind === "write" ? "\u{1F50A} Hear it" : "Play again";
+    player.playSequence(q.audioFiles, reason => {
       // Surface it rather than failing silently — a mute button is impossible to diagnose.
-      replayBtn.textContent = "Audio failed: " + reason;
+      // Only on the question that asked: a late failure must not relabel the next one.
+      if (currentQuestion === q) replayBtn.textContent = "Audio failed: " + reason;
     });
   }
 
@@ -2505,16 +2509,17 @@
     writeDone.textContent = "";
     writeResult.textContent = "";
     writeResult.classList.remove("clean");
-    writeShow.classList.remove("hidden");
+    writeShow.classList.add("hidden");   // shown once the first character is ready to draw
+    writeNext.classList.add("hidden");
     writeArea.classList.remove("hidden");
 
     writeState = {
       run: writeRun,
       chars: Array.from(q.row.hanzi),   // 謝謝 is drawn twice: it is written twice
       at: 0,
+      loaded: -1,                       // which of chars the writer has ready for drawing
       nextStroke: 0,
-      mistakes: [],
-      shown: false,
+      results: [],                      // per character: mistakes made, or "shown"
       finished: false,
     };
     startChar();
@@ -2524,7 +2529,7 @@
     const state = writeState;
     const char = state.chars[state.at];
     state.nextStroke = 0;
-    state.mistakes[state.at] = 0;
+    writeNext.classList.add("hidden");
     // One writer for the whole session, recharged per character: every HanziWriter.create()
     // leaves listeners on the document that are never removed.
     if (!quizWriter) {
@@ -2545,7 +2550,9 @@
     }
     quizWriter.setCharacter(char).then(() => {
       if (state.run !== writeRun) return;
+      state.loaded = state.at;
       fitSvg(writeTarget);
+      writeShow.classList.remove("hidden");
       quizWriter.quiz({
         leniency: WRITE_LENIENCY,
         showHintAfterMisses: 3,
@@ -2553,8 +2560,8 @@
           if (state.run === writeRun) state.nextStroke = data.strokeNum + 1;
         },
         onComplete: summary => {
-          if (state.run !== writeRun || state.shown) return;
-          state.mistakes[state.at] = summary.totalMistakes;
+          if (state.run !== writeRun || state.results[state.at] !== undefined) return;
+          state.results[state.at] = summary.totalMistakes;
           finishChar();
         },
       });
@@ -2570,47 +2577,67 @@
     writeDone.appendChild(span);
   }
 
+  // A beat on the finished character before the square clears for the next one — and it lets
+  // Hanzi Writer finish its own end-of-character animation, which it starts only after
+  // reporting completion, before the square is recharged.
+  const NEXT_CHAR_PAUSE = 600;
+
   function finishChar() {
     const state = writeState;
-    addDone(state.chars[state.at], state.shown);
+    addDone(state.chars[state.at], false);
     state.at++;
-    if (state.at < state.chars.length && !state.shown) {
-      startChar();
+    writeShow.classList.add("hidden");   // back once the next character is ready to draw
+    if (state.at < state.chars.length) {
+      setTimeout(() => { if (state.run === writeRun) startChar(); }, NEXT_CHAR_PAUSE);
       return;
     }
-    // Show me hands over the rest of the word as well, so it reads complete.
-    while (state.at < state.chars.length) addDone(state.chars[state.at++], true);
+    finishWord();
+  }
+
+  function finishWord() {
+    const state = writeState;
     state.finished = true;
     writeShow.classList.add("hidden");
+    writeNext.classList.add("hidden");
 
-    const total = state.mistakes.reduce((a, b) => a + (b || 0), 0);
-    if (state.shown) {
-      writeResult.textContent = "Shown";
-    } else if (total === 0) {
-      writeResult.textContent = "Clean";
-      writeResult.classList.add("clean");
-    } else {
-      const which = state.chars.filter((_, i) => state.mistakes[i] > 0);
-      writeResult.textContent =
-        total + (total === 1 ? " mistake" : " mistakes") +
-        (state.chars.length > 1 ? " — in " + which.join(", ") : "");
-    }
+    const describe = r => r === "shown" ? "shown"
+      : r === 0 ? "clean" : r + (r === 1 ? " mistake" : " mistakes");
+    const all = state.results;
+    const clean = all.every(r => r === 0);
+    if (clean) writeResult.textContent = "Clean";
+    else if (all.every(r => r === "shown")) writeResult.textContent = "Shown";
+    else if (all.length === 1) writeResult.textContent = describe(all[0]);
+    // Several characters, mixed: say which went how, since that is what to practise again.
+    else writeResult.textContent = state.chars.map((c, i) => c + " " + describe(all[i])).join(" · ");
+    writeResult.classList.toggle("clean", clean);
     nextBtn.classList.remove("hidden");
   }
 
-  // Give up on this word: draw the rest of the current character from where the learner
-  // stopped — not from stroke 1, which would throw away what they got right.
+  // Give up on this character — only this one. It is drawn out from where the learner
+  // stopped (not from stroke 1, which would throw away what they got right); the next
+  // character is theirs to try, when they ask for it.
   writeShow.addEventListener("click", async () => {
     const state = writeState;
-    if (!state || state.finished || state.shown || state.run !== writeRun) return;
-    state.shown = true;
+    if (!state || state.finished || state.run !== writeRun) return;
+    if (state.loaded !== state.at || state.results[state.at] !== undefined) return;
+    state.results[state.at] = "shown";
+    writeShow.classList.add("hidden");
     quizWriter.cancelQuiz();
     const strokes = Number(strokeIndex.get(strokeKey(state.chars[state.at]))) || 0;
     for (let i = state.nextStroke; i < strokes; i++) {
       await quizWriter.animateStroke(i);
       if (state.run !== writeRun) return;
     }
-    finishChar();
+    addDone(state.chars[state.at], true);
+    state.at++;
+    if (state.at < state.chars.length) writeNext.classList.remove("hidden");
+    else finishWord();
+  });
+
+  writeNext.addEventListener("click", () => {
+    const state = writeState;
+    if (!state || state.finished || state.run !== writeRun) return;
+    startChar();
   });
 })();
 </script>

@@ -346,11 +346,14 @@ time it repeats — by design, since they are authored (below).
   `leniency`. A rejected stroke counts as a mistake and is not drawn. After **3** misses on one stroke, that stroke
   flashes as a hint (`showHintAfterMisses: 3`). A single tap is not a stroke and is ignored, not counted.
 - There is no automatic way past a stroke the learner can't draw (`markStrokeCorrectAfterMisses` stays off); the
-  hint repeats, and **Show me** is the exit. Show me animates the current character's remaining strokes from where
-  the learner stopped (stroke by stroke, not a redraw from stroke 1), then the remaining characters, and marks the
-  question *shown*.
-- **Result** when the word is finished: *Clean* (no mistakes), *N mistakes* naming which characters had them, or
-  *Shown*. Then Next, as for every other kind.
+  hint repeats, and **Show me** is the exit. Show me gives up on the **current character only**: it animates that
+  character's remaining strokes from where the learner stopped (stroke by stroke, not a redraw from stroke 1). If
+  the word has more characters, a **Next character** button then brings up the next one for the learner to try,
+  with Show me available again — needing help with 先 says nothing about 生. Between characters drawn by the
+  learner there is a short pause on the finished one before the square clears.
+- **Result** when the word is finished: *Clean* (every character without a mistake), *Shown* (every character
+  shown), *N mistakes* for a single character; for a mixed word, each character with how it went —
+  *先 shown · 生 clean*. Then Next, as for every other kind.
 - One quiz writer is created once and reused with `setCharacter` per character: every `HanziWriter.create()`
   attaches document-level listeners that are never removed.
 - `leniency` is a single constant, chosen by the calibration test below — not guessed.
