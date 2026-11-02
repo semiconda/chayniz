@@ -21,7 +21,11 @@ length rule below has to hold across decks, not just within one.
    python tools/check_deck.py --all          # every deck + manifest consistency
    ```
    Fix every `ERROR`. Read every `WARN` and decide deliberately.
-5. Commit both files. The site picks the lesson up on next load.
+5. **Fetch stroke data for the new characters:** `python tools/fetch_strokes.py`. It reads the
+   decks and vendors whatever is new into `app/strokes/`. Skip it and the lesson still works in
+   both modes, but its new characters get no pencil button in practice.
+6. Commit the deck, `manifest.json` and the changes under `app/strokes/`. The site picks the
+   lesson up on next load.
 
 ### Adding a lesson from a phone
 
@@ -29,7 +33,9 @@ You can do the whole thing without a computer: generate the CSV in any AI chat u
 prompt at the bottom of this file, then create the file and edit `manifest.json` through
 github.com in a mobile browser.
 
-You can't run the validator that way — so **GitHub runs it for you** on every push
+You can't run the validator or the stroke fetcher that way. The stroke data can wait for the
+next time you're at a computer: the lesson works without it. The validator can't wait, so
+**GitHub runs it for you** on every push
 (`.github/workflows/check-decks.yml`). After committing, open the commit on GitHub: a green
 tick means the deck is sound, a red cross means something is wrong, and tapping it shows
 exactly which row and why. Treat a red cross as "the lesson is broken", not as a formality.
@@ -140,6 +146,9 @@ too), continue through SUPPLEMENTARY VOCABULARY, and stop where SYNTAX PRACTICE 
 | 5 | 83-87 | 123-127 |
 | 6 | 101-105 | 141-145 |
 
+For a lesson not in the table, find its VOCABULARY pages by rendering a few pages after the
+previous lesson's range, then add the row here so the next session doesn't have to search.
+
 Three traps specific to this book:
 
 - **It prints two romanizations.** The first is Taiwan Tongyong, the second is Hanyu Pinyin —
@@ -239,7 +248,8 @@ The book is at `<path to the PDF>`. It is a scan with no text layer, so pages ha
 rendered as images and read visually; the commands are in the guide. Never commit the PDF.
 
 When you are done: add the file to `app/decks/manifest.json`, run `python tools/check_deck.py
---all` and fix every ERROR, then commit. Tell me every judgement call you made — words you
+--all` and fix every ERROR, run `python tools/fetch_strokes.py` for the stroke data, then
+commit. Tell me every judgement call you made — words you
 skipped, glosses you rewrote, anything you changed in an older deck — and why. Those are
 decisions about my study material, so I want to see them rather than have them buried.
 
