@@ -1,4 +1,4 @@
-# Chayniz — v1 Specification
+# Chayniz — Specification
 
 ## Vision
 
@@ -274,8 +274,232 @@ This is checkable two ways:
   force the same row/direction to be drawn repeatedly, and log the option sets shown; no two consecutive sets for
   that pair should be identical.
 
+## v2 — writing and sentences (specified, not yet built)
+
+Everything v1 asks is one word at a time, so it drills vocabulary and never grammar: a learner can know every word
+of 我很喜歡看書 and still not know where 很 goes. v2 adds three question kinds to test mode. Two of them put words
+into sentences, which is where grammar gets practised; the third makes the learner produce a character instead of
+recognising one. There is no separate "grammar" question type: grammar is practised by using it, in sentences.
+
+All three stay inside v1's boundaries: static page, no backend, nothing persisted, multiple choice or
+tap-to-arrange for everything that has a right answer. Drawing a character is not typed recall (no string is
+entered or normalised), so the typed-recall deferral above still stands.
+
+### The three new kinds
+
+| Kind | Prompt | The learner | Right when |
+|---|---|---|---|
+| **Write** | the English meaning, with pinyin beneath | draws the word, character by character, stroke by stroke | every stroke is accepted (see grading) |
+| **Order** | the English sentence | taps shuffled word tiles into a line, then Check | the line reads the same as the sentence or one of its listed alternative orders |
+| **Gap** | the English sentence, and the Chinese with one word blanked | picks one of four options | the option is the blanked word |
+
+### Start-screen controls
+
+One toggle is added to each existing group, so the start screen keeps its two questions ("how", "what"):
+
+- **How to practise:** Reading · Hearing · **Writing**
+- **What to practise:** Pinyin · Characters · **Sentences**
+
+Each kind has an *effective* condition. A toggle that is on but whose kind can't run stays visibly on but greyed,
+with the note saying why — the same treatment v1 gives Hearing without audio:
+
+| Kind | Runs when |
+|---|---|
+| word (v1 directions) | (Reading or Hearing) and (Pinyin or Characters), as in v1 |
+| write | Writing **and** Characters (there is no writing pinyin), and at least one selected word has stroke data for all its characters |
+| sentence | Sentences **and** (Pinyin or Characters) **and** at least one selected lesson has a sentence file. Never for a hand-loaded CSV: Sentences is disabled there |
+
+**Start** is enabled when at least one kind runs. v1's "Pick reading, hearing, or both" becomes "Pick at least one
+way to practise", shown only when no kind runs. The start-screen count reports each running kind separately:
+"N word questions · M words to write · K sentences".
+
+- How a sentence is *shown* follows the script toggles, as practice-mode columns do: tiles and the gapped line
+  show characters with Characters on, pinyin with Pinyin on, both stacked with both on. With Pinyin alone a
+  beginner practises word order before reading a single character.
+- Sentences ignore Reading/Hearing: the prompt is always English text, and there is no sentence audio in v2 (see
+  Known limitations: 我 has no recording, so almost no sentence could be played).
+- Writing and Sentences start **off**, unlike the v1 toggles. Writing is slow next to a tap, and both are new;
+  turning them on is a deliberate choice. (Toggle state is still not persisted.)
+- Practice mode hides Writing (with the rest of the How block) and also hides Sentences, which sits in the What
+  block that practice otherwise keeps.
+
+**Mixing.** Each question first picks a *kind* uniformly among the kinds that run, then picks within it. Within
+sentences, Order and Gap have equal weight (Gap only for a sentence with gaps listed). Each kind keeps its own
+shuffled queue, so every word or sentence comes up once before any repeats, exactly like v1's row queue.
+
+Expected repetition: with one lesson of ~10 sentences and all three kinds on, a sentence comes up about every
+third question, so the whole set is seen in ~30 questions before repeating. A Gap shows the same four options every
+time it repeats — by design, since they are authored (below).
+
+### Write
+
+- The prompt is the meaning (unique across decks by the deck rules, so it names exactly one word) with the pinyin
+  under it, and the word's play button when Hearing is on and audio exists.
+- A drawing square uses the practice sheet's dashed 田字格, **without the character outline** — with the outline it
+  is tracing, not recall.
+- Multi-character words are drawn one character at a time; finished characters stay visible above the square in
+  order, so the learner sees the word assemble.
+- **Grading is Hanzi Writer's quiz mode,** already vendored (3.7.3). Stroke order is enforced: a drawn stroke must
+  match the next expected stroke (the library also compares it against later strokes and tightens the tolerance if
+  a later one fits better, so drawing ahead fails). A stroke drawn backwards is rejected
+  (`acceptBackwardsStrokes: false`). Start, end, length and shape must match within a tolerance scaled by
+  `leniency`. A rejected stroke counts as a mistake and is not drawn. After **3** misses on one stroke, that stroke
+  flashes as a hint (`showHintAfterMisses: 3`). A single tap is not a stroke and is ignored, not counted.
+- There is no automatic way past a stroke the learner can't draw (`markStrokeCorrectAfterMisses` stays off); the
+  hint repeats, and **Show me** is the exit. Show me animates the current character's remaining strokes from where
+  the learner stopped (stroke by stroke, not a redraw from stroke 1), then the remaining characters, and marks the
+  question *shown*.
+- **Result** when the word is finished: *Clean* (no mistakes), *N mistakes* naming which characters had them, or
+  *Shown*. Then Next, as for every other kind.
+- One quiz writer is created once and reused with `setCharacter` per character: every `HanziWriter.create()`
+  attaches document-level listeners that are never removed.
+- `leniency` is a single constant, chosen by the calibration test below — not guessed.
+- The drawing surface must not scroll the page on touch (`touch-action: none` on the square), and on a 360×640
+  phone screen the prompt, the square and Next must all fit without scrolling.
+
+### Order
+
+- Tiles are the sentence's tokens in shuffled order, laid out below an empty answer line. Tap a tile to move it to
+  the end of the line; tap a placed tile to send it back. **Check** is enabled once every tile is placed.
+- **Comparison is by what the tiles display**, not tile identity: the line is right if, read as displayed, it
+  equals an accepted order displayed the same way. With pinyin-only tiles, 他 and 她 both read *tā*, so swapping
+  them must count as right — the learner had no way to tell them apart. The same rule makes a sentence with a
+  repeated word accept either tile in either place.
+- The shuffle **never** shows an accepted order (compared the same way). A sentence for which every distinct
+  arrangement is accepted is rejected by the validator, so a valid shuffle always exists. (Distinct arrangements
+  are counted with repeated tokens treated as identical — 3 tokens with one repeated have 3, not 6.)
+- Wrong: the line is marked, and the correct sentence (the main order) is shown beneath it with the English. Right:
+  if the learner's order was an alternative, the main order is shown too, labelled "also right", since seeing both
+  teaches that the position is free.
+- Final punctuation (。？！) is shown fixed at the end of the line and is never a tile. Sentences contain no
+  internal punctuation (see data format), so no tile is ever a comma. Pinyin is lowercase except proper nouns, so
+  a capital never gives away the first tile.
+
+### Gap
+
+- One of the sentence's listed gaps is chosen at random. The line shows the sentence with that word replaced by a
+  **fixed-width blank** (the same width whatever the word's length). The four options are the word and the **three
+  wrong options written for that gap** in the sentence file, in random order, with the same buttons and feedback
+  as word questions.
+- Wrong options are authored, not sampled. A sampled word is usually ungrammatical in the slot, so the question
+  collapses into a vocabulary question; authored ones are chosen to fit the slot grammatically, so only the meaning
+  of the English rules them out. This is also what lets a gap sit on a word with no English counterpart: in
+  我很喜歡看書 "I really like reading books", blanking 很 against 也/都/不 works because "really like" rules out
+  "also", "all" and "don't".
+- An option shows what the script toggles say: characters, pinyin, or both. A wrong option's pinyin is looked up by
+  its characters in **all** bundled word decks (not just the selected ones — a lesson-6 sentence uses lesson-1
+  words); hanzi are unique across decks, so the lookup has one answer. Numbers are composed from their digits'
+  pinyin. Answers are compared as **option values**, not button text (v1 compares `textContent`, which breaks once
+  a button holds stacked characters and pinyin).
+- The distractor-repeat rule does not apply: a gap has exactly one wrong set.
+
+### Sentence data
+
+One file per lesson, next to the word deck: `lesson03.sentences.csv` belongs to `lesson03.csv`. It is listed in
+`manifest.json` like any deck; the app recognises the `.sentences.csv` suffix and attaches it to the lesson with
+the same stem, so a lesson is still one chip. A sentence file whose word deck isn't in the manifest is an error.
+The word deck format is unchanged.
+
+```csv
+chinese,pinyin,english,also,gaps
+我 很 喜歡 看 書。,wǒ hěn xǐhuān kàn shū,I really like reading books.,,很=也/都/不; 書=報/筆/車
+我 要 這 本 書。,wǒ yào zhè běn shū,I want this book.,這 本 書 我 要,本=杯/塊/位
+"不, 我 不 是 美國人。",bù wǒ bù shì Měiguórén,"No, I'm not American.",,
+```
+
+The third row is **invalid** — it has an internal comma, so its fix is two sentences — and is shown because a `,`
+in the English is where quoting is needed: wrap that field in double quotes.
+
+| column | required | rules |
+|---|---|---|
+| `chinese` | yes | the sentence's words separated by whitespace — each token becomes a tile; optional final 。？！; no other punctuation |
+| `pinyin` | yes | one entry per token, same count; a multi-syllable word is written **joined** (`xǐhuān`, apostrophe allowed: `Xī'ān`) since spaces separate tokens — unlike word decks, where `nǐ hǎo` may be spaced. Lowercase except proper nouns |
+| `english` | yes | a faithful, natural translation that pins down the gaps; quoted if it contains a comma |
+| `also` | no | other accepted orders, separated by `\|`, each written like `chinese` without punctuation |
+| `gaps` | no | `word=wrong/wrong/wrong` entries separated by `;`; whitespace around entries is ignored |
+
+Parsing is forgiving about whitespace (any run of ASCII or full-width U+3000 spaces separates tokens; leading and
+trailing space is trimmed) and strict about everything else.
+
+**A token is a taught word.** Its characters must equal the `hanzi` of a row in this lesson's word deck or an
+earlier lesson's — *earlier* meaning the word deck's position in `manifest.json`. Its pinyin must equal that row's
+pinyin (compared without spaces and apostrophes, ignoring case). Consequences, all deliberate:
+
+- A character taught under another meaning still counts (好 is taught as "good"; a sentence may use it as "very"),
+  because the reading is the same and the pinyin check proves it. A *different reading* (好 hào) fails.
+- Words the decks deliberately dropped (好久不見, 電視機) cannot appear in sentences.
+- **Names:** a person is referred to by surname plus title (王先生, 李小姐), written as two tokens. Given names are
+  not used: almost none can be built from taught characters.
+- **Numbers** are the one exception to "a token is a deck row": a token made only of 零一二三四五六七八九十百千萬
+  that is a well-formed numeral between 1 and 99,999 in standard form (the validator parses it to a value and
+  re-renders it; 十十 and 一一 fail), using only digits already taught. 兩 is an ordinary deck word.
+
+**Validation** (`tools/check_deck.py`, extended — same ERROR/WARN/NOTE conventions):
+
+- ERROR: token and pinyin counts differ; a token not taught by this lesson (rule above); a token's pinyin differing
+  from the deck's; capitalised pinyin on a word whose deck pinyin is lowercase.
+- ERROR: punctuation other than one final 。？！ — naming the character found (`,` `，` `.` `?` and so on).
+- ERROR: fewer than 3 tokens; an `also` entry that isn't a rearrangement of exactly the same tokens, duplicates
+  another entry, or repeats the main order; accepted orders covering every distinct arrangement.
+- ERROR: a gap word that isn't a whole token, or appears more than once in the sentence (which one would be
+  blanked?); a gap without exactly three wrong options; a wrong option equal to the gap word, repeated, not taught,
+  sharing the gap word's pinyin (a homophone would be indistinguishable on a pinyin-only screen), or with a
+  different character count from the gap word.
+- WARN: two adjacent tokens that together form a deck word (好 看 where 好看 is taught) — probably meant as one tile.
+- WARN: a sentence with no gaps (it only feeds Order); a lesson with fewer than 5 sentences.
+- Simplified characters and sandhi spellings: the same checks as word decks.
+
+### Where the sentences come from
+
+Written new, for this app — not copied from the textbook, whose dialogues are copyrighted and this repository is
+public. For each lesson, about 8–12 short sentences that use only words taught up to that lesson and exercise the
+grammar that lesson introduces (taken from the book's SYNTAX PRACTICE section, which names each pattern). The
+validator enforces the vocabulary and pinyin rules; it cannot judge whether a sentence is natural Taiwanese
+Mandarin, so each lesson's sentences get an independent review for naturalness, a faithful translation, complete
+`also` orders, and gaps whose English really rules out the wrong options — and the learner (who has a teacher) has
+the final say.
+
+### Out of scope for v2
+
+- Sentences in practice mode (a list to read through). Natural follow-on; not needed to drill.
+- Sentence audio, and hearing-only sentence questions (dictation): see Known limitations.
+- Scoring, streaks, or any summary — v1's no-summary reasoning holds.
+- Writing from sound alone (the prompt always includes the meaning: homophones make sound-only writing ambiguous).
+
+### Checkable tests for v2
+
+Each is predictable by hand, before running anything:
+
+1. **Write calibration** (sets `leniency`; on a phone, with a finger — the real use case). Two groups of cases:
+   - *Must be accepted:* 大 (3 strokes), 十 (2) and 你 (7) drawn carefully in order → **0 mistakes**; 你 drawn
+     deliberately wobbly but in order and in place → **at most 1 mistake**.
+   - *Must be rejected* — these depend on the tolerance, so they bound it from above: 十's vertical drawn at the
+     far left edge of the square (right shape, wrong place); 大's last stroke ㇏ drawn as a short dot 丶 (right
+     place, wrong shape); 你's first stroke drawn well off-centre (the first stroke of a character gets twice the
+     tolerance when the outline is hidden, so it needs its own case).
+   - *Rejected at any tolerance* (checked once as a sanity check, not for calibration): 大's 丿 drawn before its 一;
+     十's horizontal drawn right-to-left.
+
+   Start at `leniency` 1.0 and try values in steps of 0.25. The chosen value is the **largest** at which every
+   must-reject case is still rejected and every must-accept case still passes. If no value satisfies both groups,
+   stop and report it: the grader can't do what this spec expects, and Write needs rethinking. The chosen value and
+   each observed result go into this file.
+2. **Order shuffle.** A 3-token sentence with no `also` has 6 arrangements, 1 accepted: over 200 shuffles the
+   accepted one appears **0** times and all 5 others appear. With `also` listing a second order, both are accepted
+   on Check and neither ever appears as a shuffle.
+3. **Same display.** With Pinyin only, a sentence containing 他 accepts 她's tile in its place when both are
+   present; and a sentence with one token twice accepts either tile in either slot.
+4. **Gap options.** For `書=報/筆/車` in the first example row, the four options are exactly {書, 報, 筆, 車} every
+   time, and with Pinyin only they read {shū, bào, bǐ, chē}.
+5. **Vocabulary rule.** A lesson-1 sentence using a lesson-3 word fails `check_deck.py --all` with an ERROR naming
+   the word; the same sentence moved to lesson 3 passes.
+
 ## Known limitations (intentional for v1)
 
+- **v2: no sentence audio.** A sentence is playable only if every syllable has a recording, and `wo3` (我) and
+  `men5` (們) are among the 16 syllables the corpus lacks, so nearly every beginner sentence would be silent, and
+  the rest would play as isolated citation syllables. Sentence questions are text-only until there is a real
+  recording of connected speech.
 - No progress survives a page reload, closing the tab, or revisiting later. This is a deliberate v1 boundary, not
   an oversight — see "Explicitly later" above.
 - Nothing adapts to what the user already knows across sessions; the per-session row queue (above) guarantees
@@ -318,3 +542,7 @@ This is checkable two ways:
    pinyin" — or should typed pinyin recall be pulled back into v1 despite not being gated by a progression system?
    (Related: see the distractor-targeting limitation above — MC-only is weaker than it could be even on its own
    terms, independent of the typed-recall question.)
+3. *(v2)* Is a per-gap authored wrong-option list the right call over sampling, given it makes every sentence more
+   work to write? Is `leniency` calibration on three characters enough to trust grading on the other 156?
+4. *(v2)* Does the "kind first, then within kind" mixing give a sensible share of sentence questions when only one
+   small lesson is selected, or when a lesson has no sentence file yet?

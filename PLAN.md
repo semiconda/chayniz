@@ -146,3 +146,127 @@ Do not implement, even partially or as a "simple version," during v1 build-out:
    not a bug).
 8. Close and reopen in a private/incognito window, and (if available) on a second device — confirm behavior is
    identical to normal use, since nothing is stored anywhere to begin with.
+
+---
+
+# v2 — writing and sentences: implementation plan
+
+Companion to the *v2 — writing and sentences* section of `SPEC.md`, which says what each question kind does and
+names the checkable tests. This part says in what order it gets built and what "done" means for each task. Same
+constraints as v1: everything stays in `app/index.html`, no build step, no new runtime dependency (Hanzi Writer is
+already vendored), nothing persisted.
+
+Each task ends with its own check. Commit after each task, docs in the same commit as the behaviour. `main` is the
+live site, so **nothing that the current app can't load goes into `manifest.json` before task 2 is in.**
+
+## Tasks
+
+**A. Make the live site safe, then the validator** — so content can be written against it.
+
+0. **Loader ignores sentence files.** Before anything else, `loadBundledDecks()` skips manifest entries ending in
+   `.sentences.csv`, so a sentence file reaching `main` early can never become an empty chip.
+   *Done:* with a dummy `lesson01.sentences.csv` listed locally, the start screen shows the same six chips and the
+   same word count as without it.
+1. **`check_deck.py` reads sentence files.** Recognise `*.sentences.csv`, pair it with its word deck by stem, and
+   apply every ERROR/WARN rule in the spec's *Validation* list, including the token-pinyin match, the numeral rule
+   and the adjacent-tokens WARN. "Earlier lesson" is the word deck's position in the manifest. Parameterise the
+   decks directory (today the `DECKS` constant is hardcoded) so fixtures can be checked.
+   *Done:* `tools/fixtures/sentences/<rule>/` holds, per rule, a manifest, a word deck and a sentence file. The
+   word decks are copies of real lessons (so they raise no word-deck errors), and each sentence file has 5 valid
+   gapped sentences plus one breaking exactly that rule. A small runner (`python tools/check_deck.py --fixtures`)
+   checks each fixture's output **contains** the expected rule's message and **no other ERROR** (WARNs from the
+   copied decks are allowed and ignored). One extra fixture is fully valid and must give 0 errors. Spec test 5
+   passes. `--all` on the real decks still reports 0 errors.
+   *Hook check:* list a broken sentence file in a scratch copy of `manifest.json`, stage both, and confirm the
+   pre-commit hook refuses the commit **with the sentence rule's message** — not "not in manifest". (CI and the hook
+   already match everything under `app/decks/`, so no change is expected there.)
+
+**B. Loading and the start screen.**
+
+2. **Load sentence files.** Replace task 0's skip with real loading: `.sentences.csv` entries go to a sentence
+   parser and attach to their lesson. The parser reuses the RFC4180 splitter, splits tokens on any whitespace run
+   (ASCII or U+3000), strips the final 。？！ into its own field, splits `also` on `|` and `gaps` on `;` `=` `/`,
+   trimming each. A malformed row is skipped and counted, like a malformed word row. A pinyin lookup over **all**
+   bundled word decks (hanzi → pinyin) is built once, plus numeral pinyin composition, for gap options. A
+   hand-loaded CSV has no sentences.
+   *Done:* a fixture sentence file `lesson01.sentences.csv` (3 sentences, kept on a local branch — not merged)
+   makes the start screen report 3 sentences; deselecting lesson 1 drops it to 0.
+3. **Two new toggles.** Writing (in *How*) and Sentences (in *What*), both off by default, with the effective
+   conditions, greying, Start rule, note text and per-kind counts from the spec's *Start-screen controls*.
+   Practice mode hides both.
+   *Done:* a table of toggle combinations, predicted before clicking — at least: Writing alone; Writing with
+   Characters off; Sentences alone with Pinyin only; Reading and Hearing off with Sentences on; Sentences on with
+   no sentence lesson selected; a hand-loaded CSV — each row giving the expected counts, Start state and note.
+   Clicked through, and the table goes in the commit message.
+
+**C. Question kinds** — 5, 6 and 7 are independent once 4 is in, and can be built in parallel.
+
+4. **Kind mixing.** `nextQuestion()` picks a kind uniformly among the kinds that run, then delegates. Word
+   questions are unchanged and keep their queue; write and sentence questions get their own shuffled queues.
+   `renderQuestion()` dispatches on kind. Answer handling compares option values, not `textContent`.
+   *Done:* with the task-2 fixture and all toggles on, a temporary console counter over 300 questions shows each
+   kind between 25% and 42%; with Sentences off, 0 sentence questions in 100; v1 word questions still answer
+   correctly (the value comparison didn't break them).
+5. **Order.** Tiles, answer line, tap to place and return, Check enabled only when all tiles are placed, result per
+   the spec. Comparison and shuffle-rejection both work on the **displayed** form under the current toggles. Tiles
+   wrap on a phone screen without horizontal scrolling.
+   *Done:* spec tests 2 and 3, via a temporary console helper that calls the shuffle 200 times and tallies
+   arrangements; then by hand on a phone at 360 px width with a 7-token sentence.
+6. **Gap.** Picks one listed gap at random, renders the line with a fixed-width blank, options showing
+   characters/pinyin/both per toggles.
+   *Done:* spec test 4 over 20 showings of the first example sentence, in both script settings.
+7. **Write.** One quiz writer created once (`showOutline: false`, `showCharacter: false`), reused via
+   `setCharacter` per character; `quiz({ leniency, showHintAfterMisses: 3, onMistake, onCorrectStroke,
+   onComplete })`. Finished characters render above the square. Show me cancels the quiz and loops
+   `animateStroke(i)` from the current stroke to the end, then shows the remaining characters. Result line per
+   spec. `touch-action: none` on the square.
+   *Done:* on a 360×640 phone: prompt, square and Next visible without scrolling; a 2-character word completed with
+   a finger without the page moving; Show me mid-character continues from the current stroke; making exactly 2
+   real wrong strokes (whole strokes in the wrong direction — taps don't count) gives "2 mistakes".
+
+**D. Calibration** — needs task 7.
+
+8. **Choose `leniency`.** Run spec test 1 on a phone. Find the largest value (steps of 0.25 from 1.0, both up and
+   down) where every must-reject case is rejected and every must-accept case passes. If none exists, stop and
+   report it rather than picking one.
+   *Done:* the value and the observed result of every case written into `SPEC.md` under the test.
+
+**E. Content** — needs tasks 1 and 2. The six lessons are written in parallel, but only the sentence files: the
+shared files (`manifest.json`, the README page table) are edited afterwards, once, by the main session, so parallel
+writers never conflict.
+
+9. **Write the sentences.** For lesson N: render the SYNTAX PRACTICE pages of the book (`~/Downloads/Practical
+   Audio-Visual Chinese 1 2nd edition.pdf`; find the pages the way the vocabulary pages were found), list the
+   patterns it teaches, and write 8–12 new sentences that use those patterns and only words from lessons 1..N,
+   following the spec's rules (names as surname + title; joined pinyin; lowercase). Not copied from the book. Every
+   sentence that can carry a gap gets one, with three wrong options that fit the slot grammatically and that the
+   English rules out.
+   *Done:* `check_deck.py` on the file reports 0 errors; a note per lesson lists the SYNTAX PRACTICE pages, the
+   patterns, and which sentence covers each. Then the main session adds all six to `manifest.json` and the page
+   ranges to the README table, and `--all` reports 0 errors.
+10. **Review the sentences independently.** A fresh session that did not write them reads each file and reports,
+    per sentence: natural Taiwanese Mandarin or not; English faithful or not; any `also` order missing or wrong; for
+    each gap, does any wrong option also fit the English. Fix what is real.
+    *Done:* findings and what was done about each are in the commit message. Then the learner reads them (and may
+    show them to their teacher); their corrections are applied, or they say the files are fine — that reply is the
+    done-condition, and nothing is called finished before it.
+
+**F. Docs and verification.**
+
+11. **Docs.** `app/decks/README.md` gets a *Sentences* section (format, rules, why sentences are written new, the
+    session prompt and the plain-chat prompt extended to cover sentences, including quoting English with commas);
+    `README.md` describes the three kinds and the two toggles; `handover.md` updated.
+12. **Manual verification.** Run every spec v2 test and the v1 manual checks again (with Writing and Sentences off,
+    v1 behaviour must be unchanged), on desktop and a phone. Record predicted next to observed in `SPEC.md`.
+
+## Order and parallelism
+
+```
+0 ──► 1 ──────────────┐
+0 ──► 2 ──► 3 ──► 4 ──┼──► 5, 6, 7 (parallel) ──► 8
+                      └──► 9 (×6 parallel; shared files after) ──► 10
+                                                    all ──► 11 ──► 12
+```
+
+0 goes first and alone. 1 and 2 can then run together. Content (9) needs both 1 (to validate) and 2 (so the live
+site can load what gets listed), and runs in parallel with 5–8.
