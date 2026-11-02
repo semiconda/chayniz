@@ -645,6 +645,105 @@
     border-color: var(--accent);
     color: #fff;
   }
+  /* On, but with nothing to do under the current settings — Writing without Characters, or
+     Sentences for lessons that have none yet. Still pressable, so it can be switched off. */
+  .toggle.on.inert {
+    background: #2a3140;
+    border-color: var(--border);
+    color: var(--muted);
+  }
+
+  .prompt-sub {
+    color: var(--muted);
+    font-size: 1.05rem;
+    text-align: center;
+    margin: -16px 0 20px;
+  }
+
+  /* ---------- Sentences: a word shown as its characters, its pinyin, or both stacked ---------- */
+  .face {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1.15;
+  }
+  .face-hanzi { font-size: 1.35rem; }
+  .face-pinyin { font-size: 0.85rem; color: var(--muted); }
+  .face-hanzi + .face-pinyin { margin-top: 2px; }
+  .face-pinyin:only-child { font-size: 1.05rem; color: var(--text); }
+
+  .sentence-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 6px;
+    min-height: 58px;
+    padding: 8px;
+    margin: 0 0 16px;
+    border: 1px dashed var(--border);
+    border-radius: 12px;
+  }
+  .sentence-line.right { border: 1px solid var(--good); }
+  .sentence-line.wrong { border: 1px solid var(--bad); }
+  .sentence-line .end { font-size: 1.35rem; align-self: flex-end; }
+  /* Fixed width whatever the answer's length, so a two-character answer isn't given away. */
+  .blank {
+    display: inline-block;
+    width: 3.2em;
+    height: 1.6em;
+    border-bottom: 2px solid var(--accent);
+  }
+  .filled { color: var(--good); }
+  .filled .face-pinyin { color: var(--good); }
+
+  .tile-bank {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-height: 52px;
+    margin-bottom: 8px;
+  }
+  .tile {
+    padding: 8px 12px;
+    background: #232b38;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .tile:active { background: #2c3647; }
+  .sentence-line .tile { background: #1f2a3c; border-color: #34507f; }
+  .sentence-result {
+    font-size: 0.95rem;
+    margin: 0 0 8px;
+  }
+  .sentence-result .label { color: var(--muted); font-size: 0.85rem; display: block; margin-bottom: 6px; }
+  .sentence-result .faces { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+  .option-btn .face { align-items: flex-start; }
+
+  /* ---------- Write: the learner draws, so the square must not scroll the page ---------- */
+  .write-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+  .write-done {
+    display: flex;
+    gap: 4px;
+    font-size: 1.6rem;
+    min-height: 1.9rem;
+  }
+  .write-done .shown { color: var(--muted); }
+  .write-grid {
+    max-width: 230px;
+    cursor: crosshair;
+    touch-action: none;
+  }
+  .write-actions { display: flex; gap: 10px; }
+  .write-actions .secondary-btn { width: auto; padding: 10px 20px; font-size: 0.95rem; }
+  .write-result { text-align: center; }
+  .write-result.clean { color: var(--good); }
+
   .hidden { display: none !important; }
 </style>
 </head>
@@ -679,12 +778,14 @@
           <div class="toggle-row">
             <button type="button" class="toggle on" data-toggle="reading">Reading</button>
             <button type="button" class="toggle on" data-toggle="hearing">Hearing</button>
+            <button type="button" class="toggle on" data-toggle="writing">Writing</button>
           </div>
         </div>
         <div class="toggle-label">What to practise</div>
         <div class="toggle-row">
           <button type="button" class="toggle on" data-toggle="pinyin">Pinyin</button>
           <button type="button" class="toggle on" data-toggle="characters">Characters</button>
+          <button type="button" class="toggle on" data-toggle="sentences">Sentences</button>
         </div>
         <div id="toggle-note" class="status"></div>
       </div>
@@ -706,9 +807,22 @@
     </div>
     <div class="prompt-label" id="prompt-label"></div>
     <div class="prompt-value" id="prompt-value"></div>
+    <div class="prompt-sub hidden" id="prompt-sub"></div>
     <button id="replay-btn" type="button" class="replay-btn hidden">Play again</button>
+    <div class="sentence-line hidden" id="sentence-line"></div>
+    <div class="tile-bank hidden" id="tile-bank"></div>
+    <div class="sentence-result hidden" id="sentence-result"></div>
+    <div class="write-area hidden" id="write-area">
+      <div class="write-done" id="write-done"></div>
+      <div id="write-target" class="stroke-grid write-grid" role="img" aria-label="Drawing square"></div>
+      <div class="write-actions">
+        <button id="write-show" type="button" class="secondary-btn">Show me</button>
+      </div>
+      <div id="write-result" class="status write-result"></div>
+    </div>
     <div class="options" id="options"></div>
     <div class="next-row">
+      <button id="check-btn" class="primary-btn hidden" disabled>Check</button>
       <button id="next-btn" class="primary-btn hidden">Next</button>
     </div>
   </section>
@@ -830,6 +944,47 @@
     return { items, skipped };
   }
 
+  // ---------- Sentence files (lessonNN.sentences.csv; format in SPEC.md, "Sentence data") ----------
+  // Whitespace of any width separates words — \s covers the full-width U+3000 that models emit.
+  function splitWords(text) {
+    return text.trim().split(/\s+/).filter(Boolean);
+  }
+
+  function rowsToSentences(rawRows) {
+    if (rawRows.length === 0) return { sentences: [], skipped: 0 };
+    const header = rawRows[0].map(h => h.trim().toLowerCase());
+    const col = name => header.indexOf(name);
+    const at = (r, name) => col(name) >= 0 ? (r[col(name)] || "").trim() : "";
+    const sentences = [];
+    let skipped = 0;
+    for (let i = 1; i < rawRows.length; i++) {
+      const r = rawRows[i];
+      let chinese = at(r, "chinese");
+      const english = at(r, "english");
+      // The final mark is shown fixed at the end of the line, never as a tile.
+      const end = /[。？！]$/.exec(chinese);
+      if (end) chinese = chinese.slice(0, -1);
+      const tokens = splitWords(chinese);
+      const pinyin = splitWords(at(r, "pinyin"));
+      if (tokens.length < 2 || tokens.length !== pinyin.length || !english) {
+        skipped++;
+        continue;
+      }
+      const also = at(r, "also").split("|").map(splitWords).filter(a => a.length === tokens.length);
+      const gaps = [];
+      for (const entry of at(r, "gaps").split(";")) {
+        const eq = entry.indexOf("=");
+        if (eq < 0) continue;
+        const word = entry.slice(0, eq).trim();
+        const wrong = entry.slice(eq + 1).split("/").map(w => w.trim()).filter(Boolean);
+        // The validator guarantees all of this; the app just refuses to ask a broken gap.
+        if (wrong.length === 3 && tokens.filter(t => t === word).length === 1) gaps.push({ word, wrong });
+      }
+      sentences.push({ tokens, pinyin, end: end ? end[0] : "", english, also, gaps });
+    }
+    return { sentences, skipped };
+  }
+
   // ---------- Question generation ----------
   const MIN_DISTINCT = 5; // see SPEC.md: Minimum dataset size
   const DISTRACTOR_RESAMPLE_CAP = 10;
@@ -850,7 +1005,13 @@
   // CHARACTERS also brings character<->pinyin (reading a character aloud is a character skill),
   // whereas PINYIN alone only unlocks pinyin<->english. Listening always runs from Chinese
   // outward — English is never the prompt, since English isn't what's being learned.
-  const toggles = { reading: true, hearing: true, pinyin: true, characters: true };
+  //
+  // WRITING and SENTENCES each add a question kind beside the word directions above; see
+  // "Start-screen controls" in SPEC.md for when each one can actually run.
+  const toggles = {
+    reading: true, hearing: true, writing: true,
+    pinyin: true, characters: true, sentences: true,
+  };
 
   function allowedDirectionKeys() {
     const keys = new Set();
@@ -936,7 +1097,8 @@
     return values.slice().sort().join("");
   }
 
-  function createQuizState(items, audioAvailable) {
+  function createQuizState(items, audioAvailable, sentenceList) {
+    const sentences = sentenceList || [];
     const distinct = distinctValuesByColumn(items);
     const syllableCount = items.map(it => Array.from(it.hanzi).length);
     const audioFor = items.map(it =>
@@ -1014,6 +1176,7 @@
       lastDistractorSet[trackKey] = setKey(distractors);
 
       return {
+        kind: "word",
         promptLabel: direction.label,
         mode: direction.mode,
         promptValue: direction.mode === "audio" ? "" : row[direction.promptCol],
@@ -1030,7 +1193,7 @@
         allowed.has(d.key) && (d.mode !== "audio" || audioFor[rowIndex]));
     }
 
-    function nextQuestion() {
+    function nextWordQuestion() {
       const allowed = allowedDirectionKeys();
       // Some rows can't satisfy the current toggles at all (e.g. listening-only mode and an
       // item with no audio), so walk the queue until one can rather than giving up.
@@ -1051,7 +1214,59 @@
         (total, _, i) => total + (directionsFor(i, allowed).length > 0 ? 1 : 0), 0);
     }
 
-    return { validDirections, nextQuestion, audioCount, countAvailable };
+    // Only words whose every character has stroke data can be drawn — all of them, once
+    // tools/fetch_strokes.py has been run for the current decks.
+    const writable = items.map((_, i) => i).filter(i =>
+      Array.from(items[i].hanzi).every(c => strokeIndex.has(strokeKey(c))));
+    let writeQueue = [];
+    let sentenceQueue = [];
+
+    function nextWriteQuestion() {
+      if (writeQueue.length === 0) writeQueue = shuffled(writable);
+      const rowIndex = writeQueue.shift();
+      return { kind: "write", row: items[rowIndex], audioFiles: audioFor[rowIndex] };
+    }
+
+    // Order and Gap weigh the same; a sentence with no gap listed can only be ordered.
+    function nextSentenceQuestion() {
+      if (sentenceQueue.length === 0) sentenceQueue = shuffled(sentences.map((_, i) => i));
+      const sentence = sentences[sentenceQueue.shift()];
+      if (sentence.gaps.length && Math.random() < 0.5) {
+        const gap = sentence.gaps[Math.floor(Math.random() * sentence.gaps.length)];
+        return {
+          kind: "gap", sentence, gap,
+          options: shuffled([gap.word].concat(gap.wrong)),
+          correctValue: gap.word,
+        };
+      }
+      return { kind: "order", sentence };
+    }
+
+    const anyScript = () => toggles.pinyin || toggles.characters;
+    const wordRuns = () => allowedDirectionKeys().size > 0 && countAvailable() > 0;
+    // There is no writing pinyin, so Writing needs Characters whatever else is on.
+    const writeRuns = () => toggles.writing && toggles.characters && writable.length > 0;
+    const sentenceRuns = () => toggles.sentences && anyScript() && sentences.length > 0;
+
+    // A kind first, uniformly among those that can run, then a question within it — so
+    // turning Sentences on gives sentences a fair share however many words are selected.
+    function nextQuestion() {
+      const kinds = [];
+      if (wordRuns()) kinds.push(nextWordQuestion);
+      if (writeRuns()) kinds.push(nextWriteQuestion);
+      if (sentenceRuns()) kinds.push(nextSentenceQuestion);
+      for (const make of shuffled(kinds)) {
+        const question = make();
+        if (question) return question;
+      }
+      return null;
+    }
+
+    return {
+      validDirections, nextQuestion, audioCount, countAvailable,
+      wordRuns, writeRuns, sentenceRuns,
+      writeCount: writable.length, sentenceCount: sentences.length,
+    };
   }
 
   // ---------- UI wiring ----------
@@ -1091,6 +1306,18 @@
   const strokeClose = document.getElementById("stroke-close");
   const strokeReplay = document.getElementById("stroke-replay");
   const strokeSay = document.getElementById("stroke-say");
+  const writingToggle = document.querySelector('.toggle[data-toggle="writing"]');
+  const sentencesToggle = document.querySelector('.toggle[data-toggle="sentences"]');
+  const promptSubEl = document.getElementById("prompt-sub");
+  const sentenceLine = document.getElementById("sentence-line");
+  const tileBank = document.getElementById("tile-bank");
+  const sentenceResult = document.getElementById("sentence-result");
+  const checkBtn = document.getElementById("check-btn");
+  const writeArea = document.getElementById("write-area");
+  const writeDone = document.getElementById("write-done");
+  const writeTarget = document.getElementById("write-target");
+  const writeShow = document.getElementById("write-show");
+  const writeResult = document.getElementById("write-result");
 
   let quiz = null;
   let audioIndex = new Set();
@@ -1103,6 +1330,9 @@
   let partsData = { chars: {}, parts: {} };
   let bundledDecks = [];              // every lesson the manifest lists, parsed once on load
   const selectedDecks = new Set();    // filenames of the lessons currently being drilled
+  // hanzi -> pinyin over every bundled deck, selected or not: a gap's wrong options are
+  // written as characters only, and a lesson-6 sentence may offer a lesson-1 word.
+  let pinyinByHanzi = new Map();
 
   // TEST drills the selected words as multiple-choice questions; PRACTICE shows them as a
   // vocabulary table to read through, so a lesson can be studied without the book. Both run
@@ -1123,8 +1353,8 @@
     loadStatus.classList.toggle("error", Boolean(isError));
   }
 
-  function useItems(items, skipped, sourceLabel, groups) {
-    lastLoad = { items, skipped, sourceLabel, groups };
+  function useItems(items, skipped, sourceLabel, groups, sentences) {
+    lastLoad = { items, skipped, sourceLabel, groups, sentences };
     startBtn.disabled = true;
     quiz = null;
     practiceGroups = groups || [{ title: "Vocabulary", items }];
@@ -1133,7 +1363,7 @@
       setStatus("No usable rows found (need hanzi, pinyin and meaning columns).", true);
       return;
     }
-    const candidate = createQuizState(items, audioIndex);
+    const candidate = createQuizState(items, audioIndex, sentences);
     if (candidate.validDirections.length === 0) {
       // Too thin to build questions from. That stops the quiz but not the table, so it is
       // only an error in test mode.
@@ -1147,6 +1377,9 @@
     quiz = candidate;
     let msg = items.length + " words loaded" + (sourceLabel ? " " + sourceLabel : "") + ".";
     if (candidate.audioCount > 0) msg += " " + candidate.audioCount + " with audio.";
+    if (candidate.sentenceCount > 0) {
+      msg += " " + candidate.sentenceCount + " sentence" + (candidate.sentenceCount === 1 ? "" : "s") + ".";
+    }
     if (skipped > 0) msg += " " + skipped + " row(s) skipped (missing column).";
     setStatus(msg, false);
     refreshToggles();
@@ -1180,16 +1413,26 @@
     const deckFiles = await manifestRes.json();
 
     const decks = [];
+    const sentenceFiles = new Map();   // "lesson03" -> parsed lesson03.sentences.csv
     for (const name of deckFiles) {
-      // Sentence files belong to a lesson rather than being one; until they are loaded as such,
-      // they must never surface as a chip of their own.
-      if (/\.sentences\.csv$/i.test(name)) continue;
       const res = await fetch("decks/" + name, { cache: "no-store" });
       if (!res.ok) continue;
-      const parsed = rowsToItems(parseCSV(await res.text()));
+      const text = await res.text();
+      // A sentence file belongs to the lesson of the same name rather than being one, so it
+      // never becomes a chip of its own.
+      if (/\.sentences\.csv$/i.test(name)) {
+        sentenceFiles.set(name.replace(/\.sentences\.csv$/i, ""), rowsToSentences(parseCSV(text)));
+        continue;
+      }
+      const parsed = rowsToItems(parseCSV(text));
       decks.push({ name, title: deckTitle(name), items: parsed.items, skipped: parsed.skipped });
     }
     if (decks.length === 0) throw new Error("no deck loaded");
+    for (const deck of decks) {
+      const own = sentenceFiles.get(deck.name.replace(/\.csv$/i, ""));
+      deck.sentences = own ? own.sentences : [];
+      deck.skipped += own ? own.skipped : 0;
+    }
     return decks;
   }
 
@@ -1236,7 +1479,8 @@
       mergeItems(chosen.map(d => d.items)),
       chosen.reduce((n, d) => n + d.skipped, 0),
       label,
-      groups);
+      groups,
+      chosen.flatMap(d => d.sentences));
   }
 
   function renderLessonChips() {
@@ -1271,7 +1515,8 @@
     reader.onload = () => {
       const { items, skipped } = rowsToItems(parseCSV(String(reader.result)));
       lessonGroup.classList.add("hidden");   // the chips describe the bundled lessons, not this file
-      useItems(items, skipped, "from " + file.name, [{ title: file.name, items }]);
+      // No sentences: they belong to bundled lessons, and this file is only a word list.
+      useItems(items, skipped, "from " + file.name, [{ title: file.name, items }], []);
     };
     reader.onerror = () => setStatus("Could not read that file.", true);
     reader.readAsText(file);
@@ -1288,6 +1533,9 @@
     // Practice draws no reading/hearing distinction — every row is readable and carries its
     // own play button — so the toggles that would claim otherwise come off screen entirely.
     howBlock.classList.toggle("hidden", mode === "practice");
+    // Sentences sits among the scripts, which practice keeps for its columns, so it has to
+    // come off on its own: the vocabulary table has no sentences to show.
+    sentencesToggle.classList.toggle("hidden", mode === "practice");
     startBtn.textContent = mode === "practice" ? "Show vocabulary" : "Start";
 
     toggleButtons.forEach(btn => {
@@ -1296,6 +1544,8 @@
       btn.disabled = name === "hearing" && !hearingPossible;
       btn.setAttribute("aria-pressed", String(Boolean(toggles[name])));
     });
+    writingToggle.classList.toggle("inert", Boolean(quiz) && toggles.writing && !quiz.writeRuns());
+    sentencesToggle.classList.toggle("inert", Boolean(quiz) && toggles.sentences && !quiz.sentenceRuns());
 
     if (mode === "practice") {
       const total = practiceGroups.reduce((n, g) => n + g.items.length, 0);
@@ -1312,18 +1562,31 @@
 
     const typeCount = allowedDirectionKeys().size;
     const usable = typeCount ? quiz.countAvailable() : 0;
+    const plural = (n, word) => n + " " + word + (n === 1 ? "" : "s");
+    const parts = [];
+    if (usable) parts.push(plural(typeCount, "question type") + " · " + plural(usable, "word"));
+    if (quiz.writeRuns()) parts.push(quiz.writeCount + " to write");
+    if (quiz.sentenceRuns()) parts.push(plural(quiz.sentenceCount, "sentence"));
+    const runs = parts.length > 0;
+
+    // Why a toggle that is on is doing nothing, so its grey state is never a mystery.
+    const idle = [];
+    if (toggles.writing && !toggles.characters) idle.push("Writing needs Characters");
+    if (toggles.sentences && quiz.sentenceCount === 0) idle.push("no sentences in these lessons yet");
+
+    let note;
     if (!toggles.pinyin && !toggles.characters) {
-      toggleNote.textContent = "Pick pinyin, characters, or both.";
-    } else if (!toggles.reading && !toggles.hearing) {
-      toggleNote.textContent = "Pick reading, hearing, or both.";
-    } else if (!usable) {
-      toggleNote.textContent = "No questions available with these settings.";
+      note = "Pick pinyin, characters, or both.";
+    } else if (!runs) {
+      const anyWay = toggles.reading || toggles.hearing || toggles.writing || toggles.sentences;
+      note = anyWay ? "No questions available with these settings." : "Pick at least one way to practise.";
     } else {
-      toggleNote.textContent =
-        typeCount + " question type" + (typeCount === 1 ? "" : "s") + " · " + usable + " words";
+      note = parts.join(" · ");
     }
-    toggleNote.classList.toggle("error", !usable);
-    startBtn.disabled = !usable;
+    if (idle.length && (toggles.pinyin || toggles.characters)) note += " — " + idle.join("; ");
+    toggleNote.textContent = note;
+    toggleNote.classList.toggle("error", !runs);
+    startBtn.disabled = !runs;
   }
 
   toggleButtons.forEach(btn => {
@@ -1340,7 +1603,9 @@
       mode = btn.dataset.mode;
       // Re-run the last load rather than just repainting: a deck too thin for questions is an
       // error in test mode and perfectly fine in practice, so the status line has to be redone.
-      if (lastLoad) useItems(lastLoad.items, lastLoad.skipped, lastLoad.sourceLabel, lastLoad.groups);
+      if (lastLoad) {
+        useItems(lastLoad.items, lastLoad.skipped, lastLoad.sourceLabel, lastLoad.groups, lastLoad.sentences);
+      }
       else refreshToggles();
     });
   });
@@ -1396,6 +1661,7 @@
     try {
       bundledDecks = await loadBundledDecks();
       bundledDecks.forEach(d => selectedDecks.add(d.name));
+      pinyinByHanzi = new Map(bundledDecks.flatMap(d => d.items.map(it => [it.hanzi, it.pinyin])));
       renderLessonChips();
       applyDeckSelection();
     } catch (err) {
@@ -1407,6 +1673,7 @@
 
   function showLoadScreen() {
     player.stop();
+    cancelWriting();
     quizScreen.classList.add("hidden");
     practiceScreen.classList.add("hidden");
     loadScreen.classList.remove("hidden");
@@ -1781,19 +2048,21 @@
       strokeAnimationSpeed: 1,
       delayBetweenStrokes: 260,
       delayBetweenLoops: 1400,      // the beat on the finished character before it redraws
-      // Local files only. Without this Hanzi Writer fetches from a CDN, which is exactly
-      // the dependency this directory exists to avoid.
-      charDataLoader: function (requested, onLoad, onError) {
-        if (!requested || requested.codePointAt(0) === undefined) {
-          onError(new Error("no character"));
-          return;
-        }
-        fetch("strokes/data/" + strokeKey(requested) + ".json")
-          .then(res => res.ok ? res.json() : Promise.reject(new Error(res.status)))
-          .then(onLoad)
-          .catch(onError);
-      },
+      charDataLoader: loadStrokeData,
     });
+  }
+
+  // Local files only. Without this Hanzi Writer fetches from a CDN, which is exactly the
+  // dependency this directory exists to avoid.
+  function loadStrokeData(requested, onLoad, onError) {
+    if (!requested || requested.codePointAt(0) === undefined) {
+      onError(new Error("no character"));
+      return;
+    }
+    fetch("strokes/data/" + strokeKey(requested) + ".json")
+      .then(res => res.ok ? res.json() : Promise.reject(new Error(res.status)))
+      .then(onLoad)
+      .catch(onError);
   }
 
   // ---------- What the character is made of ----------
@@ -1969,28 +2238,50 @@
     if (!q) return;
     currentQuestion = q;
     player.stop();
+    cancelWriting();
 
+    // Every kind starts from a bare card and switches on only what it uses.
+    promptSubEl.classList.add("hidden");
+    replayBtn.classList.add("hidden");
+    [sentenceLine, tileBank, sentenceResult].forEach(el => {
+      el.classList.add("hidden");
+      el.classList.remove("right", "wrong");
+      el.textContent = "";
+    });
+    writeArea.classList.add("hidden");
+    optionsEl.innerHTML = "";
+    checkBtn.classList.add("hidden");
+    nextBtn.classList.add("hidden");
+
+    if (q.kind === "write") renderWrite(q);
+    else if (q.kind === "order") renderOrder(q);
+    else if (q.kind === "gap") renderGap(q);
+    else renderWord(q);
+  }
+
+  function renderWord(q) {
     promptLabelEl.textContent = q.promptLabel;
     promptValueEl.textContent = q.mode === "audio" ? "\u{1F50A}" : q.promptValue;
     promptValueEl.classList.toggle("latin", q.mode !== "audio" && !q.promptIsHanzi);
     replayBtn.classList.toggle("hidden", q.mode !== "audio");
-    optionsEl.innerHTML = "";
-    nextBtn.classList.add("hidden");
-
-    q.options.forEach(optionValue => {
-      const btn = document.createElement("button");
-      btn.className = "option-btn";
-      btn.textContent = optionValue;
-      btn.addEventListener("click", () => handleAnswer(optionValue, q));
-      optionsEl.appendChild(btn);
-    });
-
+    q.options.forEach(value => addOption(value, document.createTextNode(value), q));
     if (q.mode === "audio") playCurrent();
+  }
+
+  // The value travels with the button rather than being read back from its text: a sentence
+  // option can hold characters and pinyin stacked, and its text would no longer match.
+  function addOption(value, content, q) {
+    const btn = document.createElement("button");
+    btn.className = "option-btn";
+    btn.dataset.value = value;
+    btn.appendChild(content);
+    btn.addEventListener("click", () => handleAnswer(value, q));
+    optionsEl.appendChild(btn);
   }
 
   function playCurrent() {
     if (!currentQuestion || !currentQuestion.audioFiles) return;
-    replayBtn.textContent = "Play again";
+    replayBtn.textContent = currentQuestion.kind === "write" ? "\u{1F50A} Hear it" : "Play again";
     player.playSequence(currentQuestion.audioFiles, reason => {
       // Surface it rather than failing silently — a mute button is impossible to diagnose.
       replayBtn.textContent = "Audio failed: " + reason;
@@ -2001,19 +2292,326 @@
     const correct = q.correctValue;
     Array.from(optionsEl.querySelectorAll(".option-btn")).forEach(btn => {
       btn.disabled = true;
-      if (btn.textContent === correct) {
+      if (btn.dataset.value === correct) {
         btn.classList.add(selected === correct ? "correct" : "reveal");
-      } else if (btn.textContent === selected) {
+      } else if (btn.dataset.value === selected) {
         btn.classList.add("incorrect");
       }
     });
-    if (q.mode === "audio") {
+    if (q.kind === "gap") {
+      // Put the answer into the line, so the sentence is read whole once before moving on.
+      const blank = sentenceLine.querySelector(".blank");
+      if (blank) {
+        const filled = wordFace(q.gap.word, sentencePinyin(q.sentence, q.gap.word));
+        filled.classList.add("filled");
+        blank.replaceWith(filled);
+      }
+    } else if (q.mode === "audio") {
       // Reveal what was actually said — otherwise a wrong answer teaches nothing.
       promptValueEl.textContent = q.row.hanzi + "  " + q.row.pinyin;
       promptValueEl.classList.add("latin");
     }
     nextBtn.classList.remove("hidden");
   }
+
+  // ---------- Sentences: Order and Gap ----------
+  // A word is shown the way the script toggles say — characters, pinyin, or both stacked —
+  // exactly as practice shows its columns, so Pinyin alone drills word order before reading.
+  function wordFace(hanzi, pinyin) {
+    const face = document.createElement("span");
+    face.className = "face";
+    if (toggles.characters) {
+      const h = document.createElement("span");
+      h.className = "face-hanzi";
+      h.textContent = hanzi;
+      face.appendChild(h);
+    }
+    if (toggles.pinyin) {
+      const p = document.createElement("span");
+      p.className = "face-pinyin";
+      p.textContent = pinyin;
+      face.appendChild(p);
+    }
+    return face;
+  }
+
+  // What the learner can actually see of a word. Answers are compared on this, not on the
+  // characters: with pinyin alone 他 and 她 are both "tā", and swapping two tiles that look
+  // identical cannot be a mistake.
+  function faceKey(hanzi, pinyin) {
+    return (toggles.characters ? hanzi : "") + "/" + (toggles.pinyin ? pinyin.toLowerCase() : "");
+  }
+
+  // A word of the sentence carries its own pinyin; any other (a wrong option) is looked up
+  // across every deck, and a number, which no deck lists whole, is read digit by digit.
+  function sentencePinyin(sentence, hanzi) {
+    const at = sentence.tokens.indexOf(hanzi);
+    if (at >= 0) return sentence.pinyin[at];
+    if (pinyinByHanzi.has(hanzi)) return pinyinByHanzi.get(hanzi);
+    const digits = Array.from(hanzi).map(c => pinyinByHanzi.get(c));
+    return digits.every(Boolean) ? digits.join("") : "";
+  }
+
+  function facesRow(sentence, tokens) {
+    const row = document.createElement("div");
+    row.className = "faces";
+    tokens.forEach(t => row.appendChild(wordFace(t, sentencePinyin(sentence, t))));
+    if (sentence.end) {
+      const end = document.createElement("span");
+      end.className = "end";
+      end.textContent = sentence.end;
+      row.appendChild(end);
+    }
+    return row;
+  }
+
+  function renderOrder(q) {
+    const s = q.sentence;
+    promptLabelEl.textContent = "Put the words in order";
+    promptValueEl.textContent = s.english;
+    promptValueEl.classList.add("latin");
+
+    const keyOf = tokens => tokens.map(t => faceKey(t, sentencePinyin(s, t))).join(" ");
+    const mainKey = keyOf(s.tokens);
+    const accepted = new Set([mainKey].concat(s.also.map(keyOf)));
+
+    // Never deal the tiles already in an accepted order. The validator guarantees some other
+    // arrangement exists; the cap only matters if hiding a script collapses them all into
+    // one look, and then any deal is as good as another.
+    const indices = s.tokens.map((_, i) => i);
+    let deal = shuffled(indices);
+    for (let attempt = 0; attempt < 50 && accepted.has(keyOf(deal.map(i => s.tokens[i]))); attempt++) {
+      deal = shuffled(indices);
+    }
+
+    const placed = [];
+    let checked = false;
+
+    function tile(i) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "tile";
+      btn.appendChild(wordFace(s.tokens[i], s.pinyin[i]));
+      btn.addEventListener("click", () => {
+        if (checked) return;
+        const at = placed.indexOf(i);
+        if (at >= 0) placed.splice(at, 1);
+        else placed.push(i);
+        draw();
+      });
+      return btn;
+    }
+
+    function draw() {
+      sentenceLine.textContent = "";
+      placed.forEach(i => sentenceLine.appendChild(tile(i)));
+      if (s.end) {
+        const end = document.createElement("span");
+        end.className = "end";
+        end.textContent = s.end;
+        sentenceLine.appendChild(end);
+      }
+      tileBank.textContent = "";
+      deal.filter(i => placed.indexOf(i) < 0).forEach(i => tileBank.appendChild(tile(i)));
+      checkBtn.disabled = placed.length < s.tokens.length;
+    }
+
+    checkBtn.onclick = () => {
+      if (checked || placed.length < s.tokens.length) return;
+      checked = true;
+      const key = keyOf(placed.map(i => s.tokens[i]));
+      const right = accepted.has(key);
+      sentenceLine.classList.add(right ? "right" : "wrong");
+      // Wrong: show the sentence. Right by another order: show the main one too, since seeing
+      // both is what teaches that the position is free.
+      if (!right || key !== mainKey) {
+        const label = document.createElement("span");
+        label.className = "label";
+        label.textContent = right ? "Also right:" : "The sentence:";
+        sentenceResult.appendChild(label);
+        sentenceResult.appendChild(facesRow(s, s.tokens));
+        sentenceResult.classList.remove("hidden");
+      }
+      tileBank.classList.add("hidden");
+      checkBtn.classList.add("hidden");
+      nextBtn.classList.remove("hidden");
+    };
+
+    sentenceLine.classList.remove("hidden");
+    tileBank.classList.remove("hidden");
+    checkBtn.classList.remove("hidden");
+    draw();
+  }
+
+  function renderGap(q) {
+    const s = q.sentence;
+    promptLabelEl.textContent = "Fill the gap";
+    promptValueEl.textContent = s.english;
+    promptValueEl.classList.add("latin");
+
+    s.tokens.forEach((t, i) => {
+      if (t === q.gap.word) {
+        const blank = document.createElement("span");
+        blank.className = "blank";
+        sentenceLine.appendChild(blank);
+      } else {
+        sentenceLine.appendChild(wordFace(t, s.pinyin[i]));
+      }
+    });
+    if (s.end) {
+      const end = document.createElement("span");
+      end.className = "end";
+      end.textContent = s.end;
+      sentenceLine.appendChild(end);
+    }
+    sentenceLine.classList.remove("hidden");
+    q.options.forEach(value => addOption(value, wordFace(value, sentencePinyin(s, value)), q));
+  }
+
+  // ---------- Write: draw the word, stroke by stroke ----------
+  // Graded by Hanzi Writer's quiz: each stroke must be the next one, drawn the right way,
+  // starting and ending about where it should. See "Write" in SPEC.md, and the calibration
+  // test there for where WRITE_LENIENCY comes from.
+  const WRITE_LENIENCY = 1.0;
+  let quizWriter = null;
+  // Bumped on every new word and on leaving, so callbacks from an abandoned quiz do nothing.
+  let writeRun = 0;
+  let writeState = null;
+
+  function fitSvg(target) {
+    const svg = target.querySelector("svg");
+    if (svg && !svg.getAttribute("viewBox")) {
+      svg.setAttribute("viewBox", "0 0 " + STROKE_BOX + " " + STROKE_BOX);
+      svg.removeAttribute("width");
+      svg.removeAttribute("height");
+    }
+  }
+
+  function cancelWriting() {
+    writeRun++;
+    if (quizWriter) quizWriter.cancelQuiz();
+  }
+
+  function renderWrite(q) {
+    promptLabelEl.textContent = "Write this word";
+    promptValueEl.textContent = q.row.meaning;
+    promptValueEl.classList.add("latin");
+    promptSubEl.textContent = q.row.pinyin;
+    promptSubEl.classList.remove("hidden");
+    // Hearing it helps; it is never the only clue, since homophones would make that ambiguous.
+    replayBtn.classList.toggle("hidden", !(toggles.hearing && q.audioFiles));
+    replayBtn.textContent = "\u{1F50A} Hear it";
+
+    writeDone.textContent = "";
+    writeResult.textContent = "";
+    writeResult.classList.remove("clean");
+    writeShow.classList.remove("hidden");
+    writeArea.classList.remove("hidden");
+
+    writeState = {
+      run: writeRun,
+      chars: Array.from(q.row.hanzi),   // 謝謝 is drawn twice: it is written twice
+      at: 0,
+      nextStroke: 0,
+      mistakes: [],
+      shown: false,
+      finished: false,
+    };
+    startChar();
+  }
+
+  function startChar() {
+    const state = writeState;
+    const char = state.chars[state.at];
+    state.nextStroke = 0;
+    state.mistakes[state.at] = 0;
+    // One writer for the whole session, recharged per character: every HanziWriter.create()
+    // leaves listeners on the document that are never removed.
+    if (!quizWriter) {
+      quizWriter = HanziWriter.create(writeTarget, char, {
+        width: STROKE_BOX,
+        height: STROKE_BOX,
+        padding: 16,
+        showCharacter: false,
+        showOutline: false,             // with the outline it is tracing, not recall
+        strokeColor: "#e8ecf1",
+        radicalColor: null,
+        highlightColor: "#4f8cff",      // the hint after three misses
+        drawingColor: "#8893a3",
+        drawingWidth: 6,
+        strokeAnimationSpeed: 1.4,
+        charDataLoader: loadStrokeData,
+      });
+    }
+    quizWriter.setCharacter(char).then(() => {
+      if (state.run !== writeRun) return;
+      fitSvg(writeTarget);
+      quizWriter.quiz({
+        leniency: WRITE_LENIENCY,
+        showHintAfterMisses: 3,
+        onCorrectStroke: data => {
+          if (state.run === writeRun) state.nextStroke = data.strokeNum + 1;
+        },
+        onComplete: summary => {
+          if (state.run !== writeRun || state.shown) return;
+          state.mistakes[state.at] = summary.totalMistakes;
+          finishChar();
+        },
+      });
+    }).catch(() => {
+      if (state.run === writeRun) writeResult.textContent = "No stroke data for " + char;
+    });
+  }
+
+  function addDone(char, shown) {
+    const span = document.createElement("span");
+    span.textContent = char;
+    if (shown) span.className = "shown";
+    writeDone.appendChild(span);
+  }
+
+  function finishChar() {
+    const state = writeState;
+    addDone(state.chars[state.at], state.shown);
+    state.at++;
+    if (state.at < state.chars.length && !state.shown) {
+      startChar();
+      return;
+    }
+    // Show me hands over the rest of the word as well, so it reads complete.
+    while (state.at < state.chars.length) addDone(state.chars[state.at++], true);
+    state.finished = true;
+    writeShow.classList.add("hidden");
+
+    const total = state.mistakes.reduce((a, b) => a + (b || 0), 0);
+    if (state.shown) {
+      writeResult.textContent = "Shown";
+    } else if (total === 0) {
+      writeResult.textContent = "Clean";
+      writeResult.classList.add("clean");
+    } else {
+      const which = state.chars.filter((_, i) => state.mistakes[i] > 0);
+      writeResult.textContent =
+        total + (total === 1 ? " mistake" : " mistakes") +
+        (state.chars.length > 1 ? " — in " + which.join(", ") : "");
+    }
+    nextBtn.classList.remove("hidden");
+  }
+
+  // Give up on this word: draw the rest of the current character from where the learner
+  // stopped — not from stroke 1, which would throw away what they got right.
+  writeShow.addEventListener("click", async () => {
+    const state = writeState;
+    if (!state || state.finished || state.shown || state.run !== writeRun) return;
+    state.shown = true;
+    quizWriter.cancelQuiz();
+    const strokes = Number(strokeIndex.get(strokeKey(state.chars[state.at]))) || 0;
+    for (let i = state.nextStroke; i < strokes; i++) {
+      await quizWriter.animateStroke(i);
+      if (state.run !== writeRun) return;
+    }
+    finishChar();
+  });
 })();
 </script>
 </body>
