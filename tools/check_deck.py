@@ -1,11 +1,18 @@
 """Validate a lesson CSV before committing it.
 
     python tools/check_deck.py app/decks/lesson01.csv
+    python tools/check_deck.py app/decks/lesson03.sentences.csv
     python tools/check_deck.py --all          # every deck, plus manifest consistency
+    python tools/check_deck.py --all --decks DIR   # the same, for another decks directory
+    python tools/check_deck.py --fixtures     # self-test against tools/fixtures/sentences/
 
 Checks structure, tone marks, sandhi spellings, duplicate values across every deck, audio
 coverage, and whether the deck can produce fair multiple-choice options. Exits non-zero if
 anything is an ERROR; WARNINGs are judgement calls worth a look.
+
+A `*.sentences.csv` file is a lesson's sentences (see SPEC.md, "Sentence data"). It is checked
+against the word deck with the same stem and every word deck listed before it in manifest.json,
+so a single sentence file is checked with the manifest in its own directory.
 
 This also runs automatically on GitHub for every push, so a deck committed from a phone still
 gets checked — see .github/workflows/check-decks.yml.
@@ -13,13 +20,17 @@ gets checked — see .github/workflows/check-decks.yml.
 
 import csv
 import json
+import math
 import re
 import sys
 import unicodedata
+from collections import Counter
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 DECKS = REPO / "app" / "decks"
+FIXTURES = REPO / "tools" / "fixtures" / "sentences"
+SENTENCE_SUFFIX = ".sentences.csv"
 AUDIO_INDEX = REPO / "app" / "audio" / "index.json"
 
 REQUIRED = ("hanzi", "pinyin", "meaning")
@@ -97,13 +108,24 @@ def read_deck(path):
         return list(csv.DictReader(handle))
 
 
-def check_manifest():
+def read_manifest(decks):
+    """The manifest's entries, or None if it is missing or unreadable."""
+    manifest = decks / "manifest.json"
+    if not manifest.exists():
+        return None
+    try:
+        return json.loads(manifest.read_text(encoding="utf-8"))
+    except ValueError:
+        return None
+
+
+def check_manifest(decks):
     """A deck that isn't listed is invisible to the app — an easy step to forget."""
     global current_file
     current_file = None
-    manifest = DECKS / "manifest.json"
+    manifest = decks / "manifest.json"
     if not manifest.exists():
-        report("ERROR", "app/decks/manifest.json is missing")
+        report("ERROR", "%s is missing" % display_path(manifest))
         return []
     try:
         listed = json.loads(manifest.read_text(encoding="utf-8"))
@@ -111,40 +133,77 @@ def check_manifest():
         report("ERROR", "manifest.json is not valid JSON: %s" % err)
         return []
 
-    present = sorted(p.name for p in DECKS.glob("*.csv"))
+    present = sorted(p.name for p in decks.glob("*.csv"))
     for name in listed:
-        if not (DECKS / name).exists():
+        if not (decks / name).exists():
             report("ERROR", "manifest lists %s but that file does not exist" % name)
     for name in present:
         if name not in listed:
             report("ERROR", "%s exists but is not in manifest.json, so the app never loads it"
                    % name)
-    return [DECKS / name for name in listed if (DECKS / name).exists()]
+    return [decks / name for name in listed if (decks / name).exists()]
+
+
+def display_path(path):
+    try:
+        return path.resolve().relative_to(REPO).as_posix()
+    except ValueError:
+        return str(path)
+
+
+def decks_dir_for(target):
+    """The decks directory a single file belongs to: its own, if that has a manifest."""
+    if (target.parent / "manifest.json").exists():
+        return target.parent
+    return DECKS
 
 
 def main(argv):
     global current_file
-    if len(argv) != 2:
+    args = argv[1:]
+    decks = DECKS
+    if "--decks" in args:
+        i = args.index("--decks")
+        if i + 1 >= len(args):
+            print(__doc__)
+            return 2
+        decks = Path(args[i + 1])
+        del args[i:i + 2]
+    if len(args) != 1:
         print(__doc__)
         return 2
 
-    if argv[1] == "--all":
-        targets = check_manifest()
-        for target in targets:
-            current_file = target.name
-            check_one(target)
-        current_file = None
+    if args[0] == "--fixtures":
+        return run_fixtures()
+
+    if args[0] == "--all":
+        check_all(decks)
         return finish()
 
-    target = Path(argv[1])
+    target = Path(args[0])
     if not target.exists():
         print("No such file: %s" % target)
         return 2
-    check_one(target)
+    check_file(target, decks_dir_for(target))
     return finish()
 
 
-def check_one(target):
+def check_all(decks):
+    global current_file
+    for target in check_manifest(decks):
+        current_file = target.name
+        check_file(target, decks)
+    current_file = None
+
+
+def check_file(target, decks):
+    if target.name.endswith(SENTENCE_SUFFIX):
+        check_sentences(target, decks)
+    else:
+        check_one(target, decks)
+
+
+def check_one(target, decks):
     rows = read_deck(target)
     if not rows:
         report("ERROR", "file has no data rows")
@@ -221,7 +280,7 @@ def check_one(target):
             else:
                 seen_in_file[col][value] = number
 
-    check_against_other_decks(target, seen_in_file)
+    check_against_other_decks(target, seen_in_file, decks)
     check_option_fairness(lengths, len(rows))
 
     if no_audio:
@@ -236,12 +295,11 @@ def check_one(target):
                             "options with a varying wrong set" % (len(seen_in_file[col]), col))
 
 
-def check_against_other_decks(target, seen_in_file):
-    manifest = DECKS / "manifest.json"
-    if not manifest.exists():
-        return
-    for name in json.loads(manifest.read_text(encoding="utf-8")):
-        other = DECKS / name
+def check_against_other_decks(target, seen_in_file, decks):
+    for name in read_manifest(decks) or []:
+        other = decks / name
+        if name.endswith(SENTENCE_SUFFIX):
+            continue
         if not other.exists() or other.resolve() == target.resolve():
             continue
         for row in read_deck(other):
@@ -265,6 +323,388 @@ def check_option_fairness(lengths, total):
                            "from same-length words so the answer isn't guessable by shape; "
                            "with fewer than 4 the app has to fall back to mixed lengths"
                    % (len(group), size, " ".join(group)))
+
+
+# ---------- Sentence files (SPEC.md, "v2 — writing and sentences") ----------
+
+SENTENCE_REQUIRED = ("chinese", "pinyin", "english")
+FINAL_PUNCTUATION = "。？！"
+# Tokens are separated by runs of ASCII whitespace or the full-width space U+3000, nothing else.
+TOKEN_SPLIT = re.compile(r"[ \t\r\n\f\v　]+")
+APOSTROPHES = "'’"
+NUMERAL_DIGITS = "零一二三四五六七八九"
+NUMERAL_CHARS = set(NUMERAL_DIGITS + "十百千萬")
+NUMERAL_UNITS = ((10000, "萬"), (1000, "千"), (100, "百"), (10, "十"), (1, ""))
+MAX_NUMERAL = 99999
+_numerals = {}
+
+
+def render_numeral(n):
+    """The standard written form of 1..99,999: 十五, 一百一十, 一千零五, 一萬零五百."""
+    out = []
+    started = zero_pending = False
+    for value, unit in NUMERAL_UNITS:
+        digit = n // value % 10
+        if digit == 0:
+            zero_pending = started
+            continue
+        if zero_pending:
+            out.append("零")
+            zero_pending = False
+        if unit == "十" and digit == 1 and not started:
+            out.append("十")
+        else:
+            out.append(NUMERAL_DIGITS[digit] + unit)
+        started = True
+    return "".join(out)
+
+
+def numeral_value(token):
+    """The value of a well-formed numeral, or None. Parse-and-rerender is done the other way
+    round: every value is rendered once and the token looked up, so a token no value renders
+    to (十十, 一一, 一十五) is not well-formed."""
+    if not _numerals:
+        for n in range(1, MAX_NUMERAL + 1):
+            _numerals[render_numeral(n)] = n
+    return _numerals.get(token)
+
+
+def split_tokens(text):
+    return [t for t in TOKEN_SPLIT.split(text.strip()) if t]
+
+
+def is_punctuation(ch):
+    return unicodedata.category(ch)[0] in "PS"
+
+
+def without_punctuation(text, keep=""):
+    return "".join(c for c in text if c in keep or not is_punctuation(c))
+
+
+def punctuation_in(text, allowed=""):
+    """The distinct punctuation characters in text, in order of appearance."""
+    found = []
+    for c in text:
+        if is_punctuation(c) and c not in allowed and c not in found:
+            found.append(c)
+    return found
+
+
+def norm_pinyin(pinyin):
+    """Pinyin as compared: no spaces or apostrophes, any case."""
+    text = unicodedata.normalize("NFC", pinyin)
+    return "".join(c for c in text if not c.isspace() and c not in APOSTROPHES).lower()
+
+
+def has_capital(pinyin):
+    return any(c.isupper() for c in pinyin)
+
+
+def distinct_arrangements(items):
+    """How many different orders a multiset has: identical items are indistinguishable."""
+    total = math.factorial(len(items))
+    for count in Counter(items).values():
+        total //= math.factorial(count)
+    return total
+
+
+class Vocabulary:
+    """What a sentence file may use: the words of its own lesson and every earlier one."""
+
+    def __init__(self, deck_name, taught, later):
+        self.deck_name = deck_name
+        self.taught = taught    # hanzi -> deck pinyin, this lesson and earlier
+        self.later = later      # hanzi -> deck file name, for lessons after this one
+
+    def lookup(self, token):
+        """(pinyin, None) for a taught token, (None, reason) otherwise. A numeral's pinyin is
+        composed from its characters' deck pinyin."""
+        if token in self.taught:
+            return self.taught[token], None
+        if all(c in NUMERAL_CHARS for c in token):
+            if numeral_value(token) is None:
+                return None, ("%s is not a well-formed numeral: numbers are written in standard "
+                              "form between 1 and 99,999 (十五, 一百一十, 一千零五)" % token)
+            untaught = [c for c in dict.fromkeys(token) if c not in self.taught]
+            if untaught:
+                return None, ("numeral %s uses %s, which is not taught by %s or an earlier "
+                              "lesson" % (token, " ".join(untaught), self.deck_name))
+            return " ".join(self.taught[c] for c in token), None
+        where = self.later.get(token)
+        return None, ("%s is not a word taught by %s or an earlier lesson%s"
+                      % (token, self.deck_name,
+                         " (it is in %s, which comes later in manifest.json)" % where
+                         if where else ""))
+
+
+def load_vocabulary(target, decks):
+    """The words a sentence file may use, or None (reported) if its word deck isn't listed."""
+    deck_name = target.name[:-len(SENTENCE_SUFFIX)] + ".csv"
+    listed = read_manifest(decks)
+    if listed is None:
+        report("ERROR", "no readable manifest.json in %s, so which lessons come earlier is "
+                        "unknown" % display_path(decks))
+        return None
+    word_decks = [n for n in listed if not n.endswith(SENTENCE_SUFFIX)]
+    if deck_name not in word_decks:
+        report("ERROR", "its word deck %s is not in manifest.json. A sentence file belongs to "
+                        "the lesson with the same name, and may only use words from that lesson "
+                        "or an earlier one" % deck_name)
+        return None
+    position = word_decks.index(deck_name)
+    taught, later = {}, {}
+    for index, name in enumerate(word_decks):
+        if not (decks / name).exists():
+            continue
+        for row in read_deck(decks / name):
+            hanzi = (row.get("hanzi") or "").strip()
+            if not hanzi:
+                continue
+            if index <= position:
+                taught.setdefault(hanzi, (row.get("pinyin") or "").strip())
+            else:
+                later.setdefault(hanzi, name)
+    return Vocabulary(deck_name, taught, later)
+
+
+def check_sentences(target, decks):
+    rows = read_deck(target)
+    if not rows:
+        report("ERROR", "file has no data rows")
+        return
+    missing_cols = [c for c in SENTENCE_REQUIRED if c not in rows[0]]
+    if missing_cols:
+        report("ERROR", "missing required column(s): %s (a sentence file has the columns "
+                        "chinese,pinyin,english,also,gaps)" % ", ".join(missing_cols))
+        return
+
+    vocabulary = load_vocabulary(target, decks)
+    if vocabulary is None:
+        return
+    toned, bases = load_audio()
+
+    for number, row in enumerate(rows, start=2):
+        check_sentence(number, row, vocabulary, toned, bases)
+
+    if len(rows) < 5:
+        report("WARN", "only %d sentence(s) — a lesson should have at least 5, so word order "
+                       "gets real practice" % len(rows))
+
+
+def check_sentence(number, row, vocabulary, toned, bases):
+    chinese = (row.get("chinese") or "").strip()
+    pinyin = (row.get("pinyin") or "").strip()
+    english = (row.get("english") or "").strip()
+    where = "row %d (%s)" % (number, chinese or "?")
+
+    if not (chinese and pinyin and english):
+        report("ERROR", "%s: chinese, pinyin and english are all required" % where)
+        return
+
+    # One optional final 。？！ and no other punctuation. What was found is reported, then
+    # removed, so the token checks below don't report the same mistake again.
+    body = chinese[:-1] if chinese[-1] in FINAL_PUNCTUATION else chinese
+    found = punctuation_in(body)
+    if found:
+        report("ERROR", "%s: punctuation %s — a sentence may only end with one 。？！ and has no "
+                        "other punctuation (one with a comma inside is two sentences)"
+               % (where, " ".join(found)))
+    tokens = [t for t in (without_punctuation(t) for t in split_tokens(body)) if t]
+
+    found = punctuation_in(pinyin, APOSTROPHES)
+    if found:
+        report("ERROR", "%s: punctuation %s in the pinyin — it holds one entry per token and "
+                        "nothing else" % (where, " ".join(found)))
+    entries = [e for e in (without_punctuation(e, APOSTROPHES) for e in split_tokens(pinyin)) if e]
+
+    if len(tokens) < 3:
+        report("ERROR", "%s: %d token(s), fewer than 3 — too short to practise word order"
+               % (where, len(tokens)))
+    aligned = len(tokens) == len(entries)
+    if not aligned:
+        report("ERROR", "%s: %d tokens but %d pinyin entries (%s) — write a multi-syllable word "
+                        "joined (xǐhuān), since spaces separate tokens"
+               % (where, len(tokens), len(entries), pinyin))
+
+    # Every token is a taught word, or a numeral built from taught digits, with the deck's pinyin.
+    readings = {}   # token -> normalised deck pinyin, for the order and gap checks
+    for i, token in enumerate(tokens):
+        if check_simplified(where, token):
+            continue
+        deck_pinyin, reason = vocabulary.lookup(token)
+        if reason:
+            report("ERROR", "%s: token %s" % (where, reason))
+            continue
+        readings[token] = norm_pinyin(deck_pinyin)
+        if not aligned:
+            continue
+        written = entries[i]
+        if check_token_sandhi(where, token, written, toned, bases):
+            continue
+        if norm_pinyin(written) != readings[token]:
+            report("ERROR", "%s: %s is written %s, but its pinyin differs from the deck's %s"
+                   % (where, token, written, deck_pinyin))
+        elif has_capital(written) and not has_capital(deck_pinyin):
+            report("ERROR", "%s: %s is written %s with a capital, but the deck's %s is lowercase. "
+                            "Only proper nouns are capitalised, so a capital would give away "
+                            "the first tile" % (where, token, written, deck_pinyin))
+
+    for left, right in zip(tokens, tokens[1:]):
+        if left + right in vocabulary.taught:
+            report("WARN", "%s: %s %s together are the deck word %s — probably meant as one tile"
+                   % (where, left, right, left + right))
+
+    if len(tokens) >= 3:
+        check_also(where, tokens, (row.get("also") or "").strip(), readings)
+    check_gaps(where, tokens, (row.get("gaps") or "").strip(), readings, vocabulary)
+
+
+def check_simplified(where, text):
+    """Report simplified characters; True if there were any (the word can't be taught then)."""
+    bad = [c for c in text if c in SIMPLIFIED_ONLY]
+    if bad:
+        report("ERROR", "%s: simplified character(s) %s in %s — this app uses traditional"
+               % (where, " ".join(bad), text))
+    return bool(bad)
+
+
+def check_token_sandhi(where, token, written, toned, bases):
+    """The word-deck sandhi check, for one token. True if it reported something, so the plain
+    pinyin mismatch isn't reported a second time."""
+    syllables, ok = segment(written, bases, toned)
+    if not ok or len(syllables) != len(token):
+        return False
+    found = False
+    for char, (_, full) in zip(token, syllables):
+        want = SANDHI_FORMS.get((char, full))
+        if want:
+            report("ERROR", "%s: %s in %s written as %s, which only occurs through tone sandhi — "
+                            "write the citation form (%s), as the decks do"
+                   % (where, char, token, full, want))
+            found = True
+    return found
+
+
+def check_also(where, tokens, also, readings):
+    main = tuple(tokens)
+    accepted = [main]
+    for entry in (e.strip() for e in also.split("|")) if also else []:
+        if not entry:
+            report("ERROR", "%s: empty also entry (a stray |)" % where)
+            continue
+        found = punctuation_in(entry)
+        if found:
+            report("ERROR", "%s: also entry %r has punctuation %s — write it like chinese, but "
+                            "without punctuation" % (where, entry, " ".join(found)))
+        order = tuple(t for t in (without_punctuation(t) for t in split_tokens(entry)) if t)
+        if Counter(order) != Counter(main):
+            report("ERROR", "%s: also entry %r is not a rearrangement of exactly the sentence's "
+                            "tokens" % (where, entry))
+        elif order == main:
+            report("ERROR", "%s: also entry %r repeats the main order" % (where, entry))
+        elif order in accepted:
+            report("ERROR", "%s: also entry %r duplicates another also entry" % (where, entry))
+        else:
+            accepted.append(order)
+
+    # The app shuffles the tiles into an order that isn't accepted, compared as displayed. If
+    # every arrangement is accepted there is none. Pinyin-only tiles make homophones (他/她)
+    # identical, which can use up the arrangements even when the characters don't.
+    if len(accepted) >= distinct_arrangements(main):
+        report("ERROR", "%s: the accepted orders cover every distinct arrangement of the tiles, "
+                        "so there is no wrong order to shuffle them into" % where)
+    elif all(t in readings for t in main):
+        shown = set(tuple(readings[t] for t in order) for order in accepted)
+        if len(shown) >= distinct_arrangements([readings[t] for t in main]):
+            report("ERROR", "%s: as shown in pinyin, the accepted orders cover every distinct "
+                            "arrangement of the tiles (homophones read the same), so a "
+                            "pinyin-only shuffle has no wrong order to show" % where)
+
+
+def check_gaps(where, tokens, gaps, readings, vocabulary):
+    entries = [e.strip() for e in gaps.split(";") if e.strip()]
+    if not entries:
+        report("WARN", "%s: no gaps, so this sentence only feeds Order questions" % where)
+        return
+    seen = set()
+    for entry in entries:
+        word, eq, wrongs = (part.strip() for part in entry.partition("="))
+        if not eq or not word:
+            report("ERROR", "%s: gap %r is not written word=wrong/wrong/wrong" % (where, entry))
+            continue
+        if word in seen:
+            report("ERROR", "%s: gap word %s is listed twice" % (where, word))
+            continue
+        seen.add(word)
+
+        uses = tokens.count(word)
+        if uses == 0:
+            report("ERROR", "%s: gap word %s is not a whole token of the sentence" % (where, word))
+        elif uses > 1:
+            report("ERROR", "%s: gap word %s appears %d times in the sentence, so which one would "
+                            "be blanked is ambiguous" % (where, word, uses))
+
+        options = [o.strip() for o in wrongs.split("/")] if wrongs else []
+        if len(options) != 3 or not all(options):
+            report("ERROR", "%s: gap %s needs exactly three wrong options separated by /, has %r"
+                   % (where, word, wrongs))
+        listed = []
+        for option in (o for o in options if o):
+            if option == word:
+                report("ERROR", "%s: gap %s: wrong option %s is equal to the gap word"
+                       % (where, word, option))
+                continue
+            if option in listed:
+                report("ERROR", "%s: gap %s: wrong option %s is repeated" % (where, word, option))
+                continue
+            listed.append(option)
+            if check_simplified("%s: gap %s" % (where, word), option):
+                continue
+            option_pinyin, reason = vocabulary.lookup(option)
+            if reason:
+                report("ERROR", "%s: gap %s: wrong option %s" % (where, word, reason))
+                continue
+            if word in readings and norm_pinyin(option_pinyin) == readings[word]:
+                report("ERROR", "%s: gap %s: wrong option %s has the same pinyin as the gap word "
+                                "(%s), so the two can't be told apart on a pinyin-only screen"
+                       % (where, word, option, option_pinyin))
+            if len(option) != len(word):
+                report("ERROR", "%s: gap %s: wrong option %s has %d character(s) but the gap word "
+                                "has %d — the length would give the answer away"
+                       % (where, word, option, len(option), len(word)))
+
+
+def run_fixtures():
+    """Check every tools/fixtures/sentences/<rule>/ as a decks directory. Each holds a manifest,
+    word decks copied from real lessons, and a sentence file with one row breaking one rule;
+    expect.txt holds a substring of that rule's message. A fixture passes if the output
+    contains it and every ERROR contains it. With no expect.txt (or an empty one) the fixture
+    must give 0 errors. WARNs are ignored."""
+    global problems, current_file
+    fixtures = sorted(p for p in FIXTURES.iterdir() if p.is_dir())
+    failed = 0
+    for fixture in fixtures:
+        problems = []
+        check_all(fixture)
+        expect_file = fixture / "expect.txt"
+        expect = expect_file.read_text(encoding="utf-8").strip() if expect_file.exists() else ""
+        errors = [m for level, m in problems if level == "ERROR"]
+        if expect:
+            matched = any(expect in m for _, m in problems)
+            stray = [m for m in errors if expect not in m]
+            ok = matched and not stray
+            detail = ("expects %r" % expect if ok else
+                      "no message contains %r" % expect if not matched else
+                      "other ERRORs: " + " | ".join(stray))
+        else:
+            ok = not errors
+            detail = "expects 0 errors" if ok else "expected 0 errors: " + " | ".join(errors)
+        print("%s  %-26s %s" % ("PASS" if ok else "FAIL", fixture.name, detail))
+        failed += not ok
+    problems = []
+    current_file = None
+    print("\n%d fixture(s), %d passed, %d failed" % (len(fixtures), len(fixtures) - failed, failed))
+    return 1 if failed else 0
 
 
 def finish():
