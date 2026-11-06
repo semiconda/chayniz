@@ -23,7 +23,7 @@ Open the link. Lessons load automatically — there is nothing to install, sign 
 
 Pick one or more **lessons**. **Clear** / **All** beside the chips selects or deselects every lesson at once.
 
-**Six toggles**, all on to start with, choose what a session drills:
+**Seven toggles**, all on to start with, choose what a session drills:
 
 | Toggle | Effect |
 |---|---|
@@ -33,9 +33,10 @@ Pick one or more **lessons**. **Clear** / **All** beside the chips selects or de
 | **Pinyin** | unlocks pinyin ↔ english, and shows sentences in pinyin |
 | **Characters** | unlocks character ↔ english *and* character ↔ pinyin, and shows sentences in characters |
 | **Sentences** | the selected lessons' sentences: word order and fill-the-gap |
+| **Sounds** | single syllables by ear: which tone, which of several look-alike syllables (needs Pinyin) |
 
-A session mixes three kinds of question, each about equally often: **word** questions (the
-multiple choice above), **write** questions, and **sentence** questions.
+A session mixes four kinds of question, each about equally often: **word** questions (the
+multiple choice above), **write** questions, **sentence** questions and **sound** questions.
 
 - **Write.** You see the meaning and the pinyin, and draw the word in the square with a finger,
   stroke by stroke — no outline to trace. Each stroke must be the right one, drawn the right way;
@@ -47,6 +48,12 @@ multiple choice above), **write** questions, and **sentence** questions.
 - **Gap.** The English sentence and the Chinese with one word missing; pick it from four. The
   wrong options fit the sentence's grammar, so it's the meaning — the grammar word — you are
   being asked about.
+- **Sound.** One syllable is played; pick it from four that differ in only one thing. *Which
+  tone?* offers the same syllable in its four tones, ā á ǎ à. *Which syllable?* offers neighbours
+  that change only the initial (j / q / x, zh / ch / sh, n / l …) or only the final (yú / yóu /
+  wú, ān / āng, liù / lòu …). After answering, tap any option to hear it beside the right one.
+  This is the book's pronunciation drill: it uses every recorded syllable, not just the
+  lessons' words, so it ignores the lesson chips.
 
 With Pinyin on and Characters off, sentences are shown in pinyin only — word order practice
 before you can read the characters.
@@ -179,6 +186,9 @@ third-party server at runtime — the one library it uses is vendored into the r
   wrong options are written by hand, never sampled, so they fit the grammar of the slot.
 - **Writing** is graded by Hanzi Writer's quiz mode over the same vendored stroke data the
   practice sheet animates, with the outline hidden so it is recall rather than tracing.
+- **Sounds come from the audio index**, not from the decks. Each syllable is split into initial,
+  final and tone — with y- and w- undone, so `yu` is ü and `you` is iou — and its options are the
+  recorded syllables one confusable step away. Neutral tones are left out.
 - **Questions are generated at render time**, not stored. The same word gets asked different
   ways, and the three wrong options are drawn fresh each time, so you learn the word rather
   than the shape of the question.

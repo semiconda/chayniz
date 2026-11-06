@@ -512,6 +512,48 @@ day over 20,000 v1 word questions: the same (word, direction) came up again 18,4
 previous wrong-option set; the first 179 questions were 179 different words; all 6,776 character-answer
 questions had four options of the answer's length.
 
+## v3 — Sounds
+
+The vision asks for "hearing a sound and recognizing the pinyin", including the spellings that mislead an
+English or French reader. Word listening (v1) does not test that: its wrong options are other deck words, which
+differ from the answer in several ways at once, so a rough impression of the sound is enough. The textbook opens
+with 40 pages of pronunciation drills — tones, j/q/x, zh/ch/sh, ü spelled `yu`, `iou` → `iu`, `uei` → `ui` — and
+the audio corpus already holds every syllable those drills use. Sounds is that drill.
+
+**The question.** One recorded syllable is played. Four options, in pinyin with tone marks, differ from it in
+exactly one thing:
+
+| Focus | Prompt label | Options |
+|---|---|---|
+| tone | Which tone do you hear? | the same syllable in each of the four tones, shown in tone order (ā á ǎ à) so position gives nothing away |
+| syllable | Which syllable do you hear? | same tone; each wrong option changes only the initial, or only the final, within a confusable group; shuffled |
+
+A syllable that supports both focuses gets either with equal chance. After answering, the options stay tappable
+and each plays its own recording — hearing the near miss beside the answer is the point. A note says so.
+
+**Where the syllables come from.** `audio/index.json`, not the decks: the whole recorded inventory, so Sounds
+ignores the lesson chips. Neutral-tone files are left out (on its own a neutral syllable is not a sound anyone
+hears). Every option is a file in the index, so every option is a real syllable. A syllable is asked only if it
+has three neighbours in some focus (762 of the 1,190 toned syllables). One shuffled queue, every syllable once
+before any repeats, as for the other kinds.
+
+**Splitting a syllable.** Initial, final, tone. `y`/`w` are spelling and are undone first (`yu` → ü, `you` → iu,
+`wei` → ui, `wen` → un, `yuan` → üan …), and after j/q/x a written `u` is ü. That is what lets `yú`, `yóu` and
+`wú` stand side by side. Confusable groups, each option swapping one member for another:
+
+- initials: j q x · zh ch sh r · z c s · zh z j · ch c q · sh s x · b p · d t · g k · n l · f h
+- finals: ü u iu · i ü · üe ie · ün in un · üan ian uan · iu ou iao · ui ei uai · un en · an ang · en eng ·
+  in ing · ian iang · uan uang · ong eng · e o uo · ie ei
+
+**Controls.** A **Sounds** toggle in *What to practise*, on by default like the others. It needs **Pinyin** (the
+answers are pinyin), as Writing needs Characters; with Pinyin off it greys and the note says "Sounds needs
+Pinyin". It is disabled when there is no audio, like Hearing, and hidden in practice mode, like Sentences. It
+ignores Reading and Hearing: a sound question is audio by nature. The start-screen count adds "N sounds".
+Mixing is unchanged — one more kind in the uniform pick.
+
+**Out of scope.** Tone-change (sandhi) questions, two-syllable tone pairs, and Bopomofo: the first two need
+connected speech the corpus does not have; Bopomofo waits on whether the course uses it.
+
 ## Known limitations (intentional for v1)
 
 - **v2: no sentence audio.** A sentence is playable only if every syllable has a recording, and `wo3` (我) and
@@ -530,7 +572,9 @@ questions had four options of the answer's length.
   loaded CSV — it does not deliberately drill the traps that motivated the app. Confusability-aware distractor
   selection (e.g. a small table of known trap pairs, preferred over random sampling when available) is a real
   feature with its own design surface and is deliberately deferred, on the same "don't bolt on a cheap version"
-  reasoning used for typed recall — not solved by this spec.
+  reasoning used for typed recall — not solved by this spec. *(v3: Sounds now drills exactly these traps, with
+  options chosen by confusable group — see "v3 — Sounds". Word questions still draw their wrong options at
+  random.)*
 - Homograph/polyphone rows (same `hanzi` value, different correct `pinyin` across rows) aren't specifically
   addressed. At v1 scale this is an accepted edge case, not a blocker.
 - Bundled lessons require the page to be **served over http(s)** (GitHub Pages, or a local server). Browsers block

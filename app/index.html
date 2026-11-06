@@ -787,6 +787,7 @@
           <button type="button" class="toggle on" data-toggle="pinyin">Pinyin</button>
           <button type="button" class="toggle on" data-toggle="characters">Characters</button>
           <button type="button" class="toggle on" data-toggle="sentences">Sentences</button>
+          <button type="button" class="toggle on" data-toggle="sounds">Sounds</button>
         </div>
         <div id="toggle-note" class="status"></div>
       </div>
@@ -1008,11 +1009,11 @@
   // whereas PINYIN alone only unlocks pinyin<->english. Listening always runs from Chinese
   // outward — English is never the prompt, since English isn't what's being learned.
   //
-  // WRITING and SENTENCES each add a question kind beside the word directions above; see
-  // "Start-screen controls" in SPEC.md for when each one can actually run.
+  // WRITING, SENTENCES and SOUNDS each add a question kind beside the word directions above;
+  // see "Start-screen controls" in SPEC.md for when each one can actually run.
   const toggles = {
     reading: true, hearing: true, writing: true,
-    pinyin: true, characters: true, sentences: true,
+    pinyin: true, characters: true, sentences: true, sounds: true,
   };
 
   function allowedDirectionKeys() {
@@ -1075,6 +1076,99 @@
       }
     }
     return result.length ? result : null;
+  }
+
+  // ---------- Sounds: telling syllables apart by ear ----------
+  // A Sounds question plays one recorded syllable and offers it among others that differ in
+  // exactly one thing — the tone, the initial, or the final — so the only way to answer is to
+  // hear that difference. Every option is a recording that exists, so every option is a real
+  // syllable, and none comes from the decks: the whole syllable inventory is fair game.
+  const INITIALS = ["zh", "ch", "sh", "b", "p", "m", "f", "d", "t", "n", "l", "g", "k", "h",
+    "j", "q", "x", "r", "z", "c", "s"];
+
+  // y- and w- are spelling, not sound. Undone, yú is ü and yóu is iou, which is what lets the
+  // two be offered side by side — the trap pinyin "yu" sets for anyone who reads it as English.
+  const Y_W_FINALS = {
+    yi: "i", ya: "ia", yo: "io", ye: "ie", yai: "iai", yao: "iao", you: "iu", yan: "ian",
+    yin: "in", yang: "iang", ying: "ing", yong: "iong",
+    yu: "v", yue: "ve", yuan: "van", yun: "vn",
+    wu: "u", wa: "ua", wo: "uo", wai: "uai", wei: "ui", wan: "uan", wen: "un", wang: "uang",
+    weng: "ueng",
+  };
+
+  // Sounds a learner mixes up. A syllable's neighbours swap one member of a group for another.
+  const INITIAL_GROUPS = [
+    ["j", "q", "x"], ["zh", "ch", "sh", "r"], ["z", "c", "s"],
+    ["zh", "z", "j"], ["ch", "c", "q"], ["sh", "s", "x"],
+    ["b", "p"], ["d", "t"], ["g", "k"], ["n", "l"], ["f", "h"],
+  ];
+  const FINAL_GROUPS = [
+    ["v", "u", "iu"], ["i", "v"], ["ve", "ie"], ["vn", "in", "un"], ["van", "ian", "uan"],
+    ["iu", "ou", "iao"], ["ui", "ei", "uai"], ["un", "en"],
+    ["an", "ang"], ["en", "eng"], ["in", "ing"], ["ian", "iang"], ["uan", "uang"],
+    ["ong", "eng"], ["e", "o", "uo"], ["ie", "ei"],
+  ];
+
+  // "jiu3" -> { initial: "j", final: "iu", tone: "3" }. After j, q and x a written u is ü.
+  function splitSyllable(name) {
+    const base = name.slice(0, -1);
+    const tone = name.slice(-1);
+    if (Y_W_FINALS[base] !== undefined) return { initial: "", final: Y_W_FINALS[base], tone };
+    const initial = INITIALS.find(i => base.startsWith(i)) || "";
+    let final = base.slice(initial.length);
+    if (/^[jqx]$/.test(initial) && final.startsWith("u")) final = "v" + final.slice(1);
+    return { initial, final, tone };
+  }
+
+  // "lv4" -> "lǜ": the mark sits on a or e if there is one, on the o of ou, else the last vowel.
+  const TONE_COMBINING = { 1: "̄", 2: "́", 3: "̌", 4: "̀" };
+
+  function markedSyllable(name) {
+    const base = name.slice(0, -1).replace(/v/g, "ü");
+    const mark = TONE_COMBINING[name.slice(-1)];
+    if (!mark) return base;
+    let at = base.search(/[ae]/);
+    if (at < 0) at = base.indexOf("ou");
+    if (at < 0) {
+      for (let i = base.length - 1; i >= 0; i--) {
+        if ("iouü".includes(base[i])) { at = i; break; }
+      }
+    }
+    return (base.slice(0, at + 1) + mark + base.slice(at + 1)).normalize("NFC");
+  }
+
+  // Every syllable that can be asked, with the neighbours it can be asked against. Neutral
+  // tones stay out: on its own a neutral-tone syllable is not a sound anyone hears.
+  function buildSoundBank(available) {
+    const byParts = new Map();
+    const names = Array.from(available).filter(n => /^[a-z]+[1-4]$/.test(n));
+    const partsOf = new Map(names.map(n => [n, splitSyllable(n)]));
+    const key = (initial, final, tone) => initial + "|" + final + "|" + tone;
+    names.forEach(n => {
+      const p = partsOf.get(n);
+      byParts.set(key(p.initial, p.final, p.tone), n);
+    });
+
+    const bank = [];
+    for (const name of names) {
+      const { initial, final, tone } = partsOf.get(name);
+      const tones = ["1", "2", "3", "4"]
+        .filter(t => t !== tone)
+        .map(t => byParts.get(key(initial, final, t)))
+        .filter(Boolean);
+      const near = new Set();
+      INITIAL_GROUPS.filter(g => g.includes(initial)).flat().forEach(i => {
+        const n = byParts.get(key(i, final, tone));
+        if (n && n !== name) near.add(n);
+      });
+      FINAL_GROUPS.filter(g => g.includes(final)).flat().forEach(f => {
+        const n = byParts.get(key(initial, f, tone));
+        if (n && n !== name) near.add(n);
+      });
+      const syllables = Array.from(near);
+      if (tones.length >= 3 || syllables.length >= 3) bank.push({ name, tones, syllables });
+    }
+    return bank;
   }
 
   function distinctValuesByColumn(items) {
@@ -1244,11 +1338,38 @@
       return { kind: "order", sentence };
     }
 
+    // Sounds ignores the lesson selection: the syllables are the language's, not a lesson's.
+    const soundBank = audioAvailable ? buildSoundBank(audioAvailable) : [];
+    let soundQueue = [];
+
+    // Tone and syllable weigh the same wherever both are possible.
+    function nextSoundQuestion() {
+      if (soundQueue.length === 0) soundQueue = shuffled(soundBank);
+      const entry = soundQueue.shift();
+      const focuses = [];
+      if (entry.tones.length >= 3) focuses.push("tone");
+      if (entry.syllables.length >= 3) focuses.push("syllable");
+      const focus = focuses[Math.floor(Math.random() * focuses.length)];
+      const wrong = shuffled(focus === "tone" ? entry.tones : entry.syllables).slice(0, 3);
+      const options = [entry.name].concat(wrong);
+      // Tones stand in their own order, ā á ǎ à, as a tone chart does: where the answer sits
+      // then gives nothing away, and the eye finds a tone without reading four lines.
+      if (focus === "tone") options.sort((a, b) => a.slice(-1) - b.slice(-1));
+      return {
+        kind: "sound", focus,
+        audioFiles: [entry.name],
+        options: focus === "tone" ? options : shuffled(options),
+        correctValue: entry.name,
+      };
+    }
+
     const anyScript = () => toggles.pinyin || toggles.characters;
     const wordRuns = () => allowedDirectionKeys().size > 0 && countAvailable() > 0;
     // There is no writing pinyin, so Writing needs Characters whatever else is on.
     const writeRuns = () => toggles.writing && toggles.characters && writable.length > 0;
     const sentenceRuns = () => toggles.sentences && anyScript() && sentences.length > 0;
+    // A syllable is answered in pinyin, so Sounds needs Pinyin as Writing needs Characters.
+    const soundRuns = () => toggles.sounds && toggles.pinyin && soundBank.length > 0;
 
     // A kind first, uniformly among those that can run, then a question within it — so
     // turning Sentences on gives sentences a fair share however many words are selected.
@@ -1257,6 +1378,7 @@
       if (wordRuns()) kinds.push(nextWordQuestion);
       if (writeRuns()) kinds.push(nextWriteQuestion);
       if (sentenceRuns()) kinds.push(nextSentenceQuestion);
+      if (soundRuns()) kinds.push(nextSoundQuestion);
       for (const make of shuffled(kinds)) {
         const question = make();
         if (question) return question;
@@ -1266,8 +1388,8 @@
 
     return {
       validDirections, nextQuestion, audioCount, countAvailable,
-      wordRuns, writeRuns, sentenceRuns,
-      writeCount: writable.length, sentenceCount: sentences.length,
+      wordRuns, writeRuns, sentenceRuns, soundRuns,
+      writeCount: writable.length, sentenceCount: sentences.length, soundCount: soundBank.length,
     };
   }
 
@@ -1310,6 +1432,7 @@
   const strokeSay = document.getElementById("stroke-say");
   const writingToggle = document.querySelector('.toggle[data-toggle="writing"]');
   const sentencesToggle = document.querySelector('.toggle[data-toggle="sentences"]');
+  const soundsToggle = document.querySelector('.toggle[data-toggle="sounds"]');
   const promptSubEl = document.getElementById("prompt-sub");
   const sentenceLine = document.getElementById("sentence-line");
   const tileBank = document.getElementById("tile-bank");
@@ -1527,7 +1650,10 @@
 
   function refreshToggles() {
     const hearingPossible = audioIndex.size > 0;
-    if (!hearingPossible) toggles.hearing = false;
+    if (!hearingPossible) {
+      toggles.hearing = false;
+      toggles.sounds = false;
+    }
 
     modeSwitch.dataset.active = mode;   // drives where the thumb sits
     modeButtons.forEach(btn => {
@@ -1539,16 +1665,18 @@
     // Sentences sits among the scripts, which practice keeps for its columns, so it has to
     // come off on its own: the vocabulary table has no sentences to show.
     sentencesToggle.classList.toggle("hidden", mode === "practice");
+    soundsToggle.classList.toggle("hidden", mode === "practice");
     startBtn.textContent = mode === "practice" ? "Show vocabulary" : "Start";
 
     toggleButtons.forEach(btn => {
       const name = btn.dataset.toggle;
       btn.classList.toggle("on", toggles[name]);
-      btn.disabled = name === "hearing" && !hearingPossible;
+      btn.disabled = (name === "hearing" || name === "sounds") && !hearingPossible;
       btn.setAttribute("aria-pressed", String(Boolean(toggles[name])));
     });
     writingToggle.classList.toggle("inert", Boolean(quiz) && toggles.writing && !quiz.writeRuns());
     sentencesToggle.classList.toggle("inert", Boolean(quiz) && toggles.sentences && !quiz.sentenceRuns());
+    soundsToggle.classList.toggle("inert", Boolean(quiz) && toggles.sounds && !quiz.soundRuns());
 
     if (mode === "practice") {
       const total = practiceGroups.reduce((n, g) => n + g.items.length, 0);
@@ -1570,18 +1698,21 @@
     if (usable) parts.push(plural(typeCount, "question type") + " · " + plural(usable, "word"));
     if (quiz.writeRuns()) parts.push(quiz.writeCount + " to write");
     if (quiz.sentenceRuns()) parts.push(plural(quiz.sentenceCount, "sentence"));
+    if (quiz.soundRuns()) parts.push(quiz.soundCount + " sounds");
     const runs = parts.length > 0;
 
     // Why a toggle that is on is doing nothing, so its grey state is never a mystery.
     const idle = [];
     if (toggles.writing && !toggles.characters) idle.push("Writing needs Characters");
+    if (toggles.sounds && !toggles.pinyin) idle.push("Sounds needs Pinyin");
     if (toggles.sentences && quiz.sentenceCount === 0) idle.push("no sentences in these lessons yet");
 
     let note;
     if (!toggles.pinyin && !toggles.characters) {
       note = "Pick pinyin, characters, or both.";
     } else if (!runs) {
-      const anyWay = toggles.reading || toggles.hearing || toggles.writing || toggles.sentences;
+      const anyWay = toggles.reading || toggles.hearing || toggles.writing || toggles.sentences ||
+        toggles.sounds;
       note = anyWay ? "No questions available with these settings." : "Pick at least one way to practise.";
     } else {
       note = parts.join(" · ");
@@ -2259,7 +2390,17 @@
     if (q.kind === "write") renderWrite(q);
     else if (q.kind === "order") renderOrder(q);
     else if (q.kind === "gap") renderGap(q);
+    else if (q.kind === "sound") renderSound(q);
     else renderWord(q);
+  }
+
+  function renderSound(q) {
+    promptLabelEl.textContent = q.focus === "tone" ? "Which tone do you hear?" : "Which syllable do you hear?";
+    promptValueEl.textContent = "\u{1F50A}";
+    promptValueEl.classList.remove("latin");
+    replayBtn.classList.remove("hidden");
+    q.options.forEach(name => addOption(name, document.createTextNode(markedSyllable(name)), q));
+    playCurrent();
   }
 
   function renderWord(q) {
@@ -2278,7 +2419,15 @@
     btn.className = "option-btn";
     btn.dataset.value = value;
     btn.appendChild(content);
-    btn.addEventListener("click", () => handleAnswer(value, q));
+    btn.addEventListener("click", () => {
+      // Once a Sounds question is answered its options become recordings: hearing the one
+      // you picked beside the right one is the whole lesson of a near miss.
+      if (q.answered) {
+        if (q.kind === "sound") player.playSequence([value]);
+        return;
+      }
+      handleAnswer(value, q);
+    });
     optionsEl.appendChild(btn);
   }
 
@@ -2295,8 +2444,9 @@
 
   function handleAnswer(selected, q) {
     const correct = q.correctValue;
+    q.answered = true;
     Array.from(optionsEl.querySelectorAll(".option-btn")).forEach(btn => {
-      btn.disabled = true;
+      btn.disabled = q.kind !== "sound";
       if (btn.dataset.value === correct) {
         btn.classList.add(selected === correct ? "correct" : "reveal");
       } else if (btn.dataset.value === selected) {
@@ -2311,6 +2461,9 @@
         filled.classList.add("filled");
         blank.replaceWith(filled);
       }
+    } else if (q.kind === "sound") {
+      promptSubEl.textContent = "Tap any option to hear it.";
+      promptSubEl.classList.remove("hidden");
     } else if (q.mode === "audio") {
       // Reveal what was actually said — otherwise a wrong answer teaches nothing.
       promptValueEl.textContent = q.row.hanzi + "  " + q.row.pinyin;

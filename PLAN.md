@@ -270,3 +270,20 @@ writers never conflict.
 
 0 goes first and alone. 1 and 2 can then run together. Content (9) needs both 1 (to validate) and 2 (so the live
 site can load what gets listed), and runs in parallel with 5–8.
+
+## v3 — Sounds
+
+Small enough to build in one pass; the behaviour is in `SPEC.md` under "v3 — Sounds".
+
+- `buildSoundBank(audioIndex)` runs inside `createQuizState`: split every toned name into initial / final / tone
+  (`splitSyllable`), index them, and keep each syllable with its tone neighbours and its one-step syllable
+  neighbours. `markedSyllable` turns a file name back into tone-marked pinyin for display.
+- `nextSoundQuestion` joins the kind list behind `soundRuns()` (Sounds and Pinyin on, bank not empty).
+- `renderSound` reuses the word card: speaker, Play again, four option buttons. `addOption` checks `q.answered`
+  so an answered Sounds option plays its file instead of answering again; other kinds still disable their options.
+- Start screen: the toggle, the greying, "Sounds needs Pinyin", "N sounds" in the count, hidden in practice.
+
+*Verified* (headless Chrome, 390 px wide): with only Sounds on the note reads "762 sounds"; Pinyin off gives "No
+questions available with these settings. — Sounds needs Pinyin"; 400 consecutive questions all had four distinct
+options, about 60/40 tone/syllable; tone options come out in tone order; tapping an option after answering leaves
+the marking unchanged. Audio itself needs a phone.

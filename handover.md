@@ -31,6 +31,10 @@ added, or how validation works, update `README.md` in the same commit — alongs
   that can run. Sentences live in `app/decks/lessonNN.sentences.csv`, attached to the lesson of the same stem;
   `tools/check_deck.py` validates them (34 fixtures in `tools/fixtures/sentences/`, run by `--fixtures` and in
   CI). Spec and plan: the v2 sections of `SPEC.md` and `PLAN.md`; status of each plan task is in Open items.
+- **v3 (2026-11-06): Sounds** — a toggle in *What to practise* (needs Pinyin, on by default) that plays one
+  syllable and offers it among four that differ only in tone, or only in initial/final within a confusable group
+  (yú / yóu / wú, j / q / x, an / ang …). Built from `audio/index.json`, not the decks, so it ignores the lesson
+  chips. Answered options play when tapped. Spec: "v3 — Sounds" in `SPEC.md`. Not yet heard on a phone.
 - **Audio works**, from real MOE recordings — see the decision list below.
 - **Practice rows have a pencil button** that opens a writing sheet: the stroke-order animation, the stroke
   count, and what the character is made of — components with pinyin and gloss, which piece carries the meaning
@@ -172,7 +176,7 @@ Learning Taiwanese Mandarin from zero. The app is for:
   now run to lesson 6, so "a little ahead" has become a long way ahead. Worth asking before adding lesson 7.
 - **`hanzi` is currently required** in every row. Making it optional would allow pinyin-only decks (sound and
   meaning first, characters later). Raised, not yet decided.
-- **Distractors aren't targeted at pinyin traps** (yu/you, iu/iou, ui/uei). They now match the answer's *length*,
+- **Word-question distractors aren't targeted at pinyin traps** (yu/you, iu/iou, ui/uei) — Sounds now drills those on purpose, but word questions still pick wrong options at random. They now match the answer's *length*,
   but not its confusability — so the specific traps named in the vision only come up by chance. See the
   limitation in `SPEC.md`.
 - **Multiple choice only** — whether that's enough for "mastering pinyin" is open item #2 in `SPEC.md`.
